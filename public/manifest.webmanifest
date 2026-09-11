@@ -1,0 +1,29 @@
+{
+  "name": "Sekitarku - Pantauan Lingkungan Indonesia",
+  "short_name": "Sekitarku",
+  "description": "Dashboard Real-time Kualitas Udara (AQI), Cuaca BMKG, Indeks UV & Gempa Bumi Indonesia",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0f1d",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "/leaf.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "widgets": [
+    {
+      "name": "Sekitarku AQI & Cuaca",
+      "short_name": "Sekitarku",
+      "description": "Pantau kualitas udara & cuaca BMKG real-time di layar utama HP Anda",
+      "tag": "sekitarku-widget",
+      "template": "widget-template",
+      "ms_ac_template": "/widget.json",
+      "data": "/api/widget",
+      "type": "application/json"
+    }
+  ]
+}
