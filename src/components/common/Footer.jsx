@@ -45,7 +45,7 @@ export function Footer({ onOpenWidget }) {
       {/* Footer Navigation Links */}
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1.25rem', marginTop: '1.25rem', fontSize: '0.8rem', flexWrap: 'wrap' }}>
         <a
-          href="https://github.com/anasysuf/geosiaga"
+          href="https://github.com/arifrenggy/GeoSiaga"
           target="_blank"
           rel="noopener noreferrer"
           style={{ color: 'var(--color-primary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontWeight: '700' }}
