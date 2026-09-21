@@ -14,7 +14,7 @@ export function WidgetEmbedView({ location, weatherData, airQualityData, loading
 
   const appUrl = typeof window !== 'undefined' 
     ? `${window.location.origin}/?city=${encodeURIComponent(cityName)}` 
-    : `https://sekitarku.vercel.app/?city=${encodeURIComponent(cityName)}`;
+    : `https://geosiaga.vercel.app/?city=${encodeURIComponent(cityName)}`;
 
   return (
     <div
@@ -58,7 +58,7 @@ export function WidgetEmbedView({ location, weatherData, airQualityData, loading
             }}
           />
           <span style={{ fontSize: '0.85rem', fontWeight: '800', letterSpacing: '-0.2px' }}>
-            Sekitarku
+            GeoSiaga
           </span>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted, #64748b)', fontWeight: '600' }}>
             • {cityName}

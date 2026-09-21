@@ -39,7 +39,7 @@ export default async function handler(request) {
     else if (aqi > 50) { aqiStatus = 'Sedang'; aqiColor = '#eab308'; }
 
     const responsePayload = {
-      app: 'Sekitarku',
+      app: 'GeoSiaga',
       city,
       temp,
       tempLabel: `${temp}°C`,
@@ -62,7 +62,7 @@ export default async function handler(request) {
     });
   } catch (err) {
     const fallbackPayload = {
-      app: 'Sekitarku',
+      app: 'GeoSiaga',
       city,
       temp: 30,
       tempLabel: '30°C',

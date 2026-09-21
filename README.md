@@ -1,4 +1,4 @@
-# 🌿 Sekitarku — Platform Pemantauan Lingkungan Hidup & Mitigasi Bencana Real-Time Indonesia
+# 🌿 GeoSiaga — Platform Pemantauan Lingkungan Hidup & Mitigasi Bencana Real-Time Indonesia
 
 <p align="center">
   <strong>Platform Pemantauan Lingkungan & Mitigasi Bencana Real-Time Nusantara</strong><br>
@@ -6,8 +6,8 @@
 </p>
 
 <p align="center">
-  <a href="https://sekitarku.vercel.app" target="_blank">
-    <img src="https://img.shields.io/badge/Akses_Website-sekitarku.vercel.app-2563eb?style=for-the-badge&logo=vercel&logoColor=white" alt="Website" />
+  <a href="https://geosiaga.vercel.app" target="_blank">
+    <img src="https://img.shields.io/badge/Akses_Website-geosiaga.vercel.app-2563eb?style=for-the-badge&logo=vercel&logoColor=white" alt="Website" />
   </a>
   <img src="https://img.shields.io/badge/Versi-1.2.0-10b981?style=for-the-badge" alt="Versi" />
   <img src="https://img.shields.io/badge/Lisensi-MIT-f59e0b?style=for-the-badge" alt="Lisensi" />
@@ -16,9 +16,9 @@
 
 ---
 
-## 📖 Tentang Sekitarku
+## 📖 Tentang GeoSiaga
 
-**Sekitarku** adalah platform web progresif (*Progressive Web App*) karya anak bangsa yang dirancang untuk mendemokratisasi akses data lingkungan hidup dan mitigasi bencana di Indonesia. Mengintegrasikan berbagai API data terbuka resmi dari **BMKG (Badan Meteorologi, Klimatologi, dan Geofisika)**, **PVMBG / MAGMA Indonesia (Pusat Vulkanologi dan Mitigasi Bencana Geologi)**, **NASA FIRMS**, dan **Open-Meteo**, Sekitarku menyajikan gambaran menyeluruh kondisi ekologis di lebih dari 500 kota dan kabupaten di 38 provinsi di seluruh Nusantara.
+**GeoSiaga** adalah platform web progresif (*Progressive Web App*) karya anak bangsa yang dirancang untuk mendemokratisasi akses data lingkungan hidup dan mitigasi bencana di Indonesia. Mengintegrasikan berbagai API data terbuka resmi dari **BMKG (Badan Meteorologi, Klimatologi, dan Geofisika)**, **PVMBG / MAGMA Indonesia (Pusat Vulkanologi dan Mitigasi Bencana Geologi)**, **NASA FIRMS**, dan **Open-Meteo**, GeoSiaga menyajikan gambaran menyeluruh kondisi ekologis di lebih dari 500 kota dan kabupaten di 38 provinsi di seluruh Nusantara.
 
 Dirancang dengan prinsip desain antarmuka modern yang bersih (*clean flat aesthetic*), kontras tinggi, navigasi intuitif, serta arsitektur data instan (**Zero-Latency SWR Cache & Infallible Fallback**), pengguna dapat memantau kesehatan lingkungan di sekitar mereka secara akurat kapan pun dan di mana pun.
 
@@ -161,7 +161,7 @@ flowchart TD
 
 ## ⚡ Rekayasa Kinerja & Optimasi (Performance Engineering)
 
-Sistem Sekitarku dirancang dengan standar performa tinggi untuk menjamin kecepatan akses:
+Sistem GeoSiaga dirancang dengan standar performa tinggi untuk menjamin kecepatan akses:
 
 | Aspek Optimasi | Implementasi Teknis | Dampak Kinerja |
 | :--- | :--- | :--- |

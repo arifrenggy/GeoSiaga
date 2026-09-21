@@ -364,7 +364,7 @@ export function EmergencyGuideModal({ isOpen, onClose }) {
                 <ul style={{ fontSize: '0.8rem', color: 'var(--text-main)', paddingLeft: '1.15rem', lineHeight: 1.55, fontWeight: '500', margin: 0 }}>
                   <li>Segera matikan kompor gas dan saklar listrik utama untuk mencegah kebakaran.</li>
                   <li>Evakuasi ke titik kumpul terbuka yang jauh dari tiang listrik, baliho, dan tembok retak.</li>
-                  <li>Pantau pembaruan gempa susulan resmi BMKG di aplikasi Sekitarku.</li>
+                  <li>Pantau pembaruan gempa susulan resmi BMKG di aplikasi GeoSiaga.</li>
                 </ul>
               </div>
             </div>

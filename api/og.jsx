@@ -82,7 +82,7 @@ export default function handler(request) {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <span style={{ fontSize: '28px', fontWeight: '900', letterSpacing: '-0.5px' }}>
-                  Sekitarku
+                  GeoSiaga
                 </span>
                 <span style={{ fontSize: '14px', color: '#94a3b8', fontWeight: '600' }}>
                   Dashboard Pantauan Lingkungan Real-Time
@@ -259,7 +259,7 @@ export default function handler(request) {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '16px', color: '#ffffff', fontWeight: '800' }}>
-                sekitarku.vercel.app
+                geosiaga.vercel.app
               </span>
               <span style={{ fontSize: '13px', color: '#64748b' }}>
                 • 500+ Kota Terhubung

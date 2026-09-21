@@ -1,10 +1,10 @@
 /**
- * Sekitarku - Kamus Bahasa Indonesia Lengkap & Mandiri
+ * GeoSiaga - Kamus Bahasa Indonesia Lengkap & Mandiri
  */
 const dictionaryId = {
   // Navigation & Header
-  appName: 'Sekitarku',
-  appTitle: 'Sekitarku',
+  appName: 'GeoSiaga',
+  appTitle: 'GeoSiaga',
   appSubtitle: 'Pantauan Lingkungan Hidup & Mitigasi Bencana Real-Time',
   appTagline: 'Pantauan Lingkungan & Mitigasi Bencana Real-Time',
   liveBadge: 'DATA REAL-TIME',
@@ -185,7 +185,7 @@ const dictionaryId = {
   shareStoryText: 'Bagikan ringkasan visual kualitas udara, cuaca, gempa, dan karhutla terkini.',
 
   // Footer & Common
-  footerTitle: 'Sekitarku: Pantauan Lingkungan Hidup & Mitigasi Bencana Real-Time',
+  footerTitle: 'GeoSiaga: Pantauan Lingkungan Hidup & Mitigasi Bencana Real-Time',
   footerSources: 'Sumber Data Resmi: BMKG (Meteorologi, Klimatologi & Geofisika), PVMBG / Magma Indonesia (Aktivitas Gunung Api), NASA FIRMS (Satelit Titik Panas Karhutla), dan Open-Meteo / Copernicus (Kualitas Udara ISPU & AQI).',
   treatCoffee: 'Traktir Kopi',
   embedWidget: 'Pasang Widget',

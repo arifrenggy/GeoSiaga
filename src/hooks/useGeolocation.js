@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { getCurrentPosition } from '../utils/geo';
 import { INDONESIA_CITIES } from '../utils/cities';
 
-const STORAGE_KEY = 'sekitarku_saved_city';
+const STORAGE_KEY = 'geosiaga_saved_city';
 
 // Default canonical city for first-time access
 export const DEFAULT_CITY = {

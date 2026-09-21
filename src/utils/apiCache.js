@@ -20,14 +20,14 @@ export const apiCache = {
     // 2. Check localStorage
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        const raw = localStorage.getItem('sekitarku_cache_' + key);
+        const raw = localStorage.getItem('geosiaga_cache_' + key);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Date.now() < parsed.expiry) {
             memoryCache.set(key, parsed);
             return parsed.data;
           }
-          localStorage.removeItem('sekitarku_cache_' + key);
+          localStorage.removeItem('geosiaga_cache_' + key);
         }
       }
     } catch {
@@ -49,15 +49,15 @@ export const apiCache = {
 
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem('sekitarku_cache_' + key, JSON.stringify(item));
+        localStorage.setItem('geosiaga_cache_' + key, JSON.stringify(item));
       }
     } catch {
       // Auto-cleanup oldest cache items if quota exceeded
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
-          const keys = Object.keys(localStorage).filter(k => k.startsWith('sekitarku_cache_'));
+          const keys = Object.keys(localStorage).filter(k => k.startsWith('geosiaga_cache_'));
           keys.slice(0, 10).forEach(k => localStorage.removeItem(k));
-          localStorage.setItem('sekitarku_cache_' + key, JSON.stringify(item));
+          localStorage.setItem('geosiaga_cache_' + key, JSON.stringify(item));
         }
       } catch {}
     }
@@ -67,7 +67,7 @@ export const apiCache = {
     memoryCache.clear();
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        const keys = Object.keys(localStorage).filter(k => k.startsWith('sekitarku_cache_'));
+        const keys = Object.keys(localStorage).filter(k => k.startsWith('geosiaga_cache_'));
         keys.forEach(k => localStorage.removeItem(k));
       }
     } catch {}

@@ -1,6 +1,6 @@
 {
-  "name": "Sekitarku - Pantauan Lingkungan Indonesia",
-  "short_name": "Sekitarku",
+  "name": "GeoSiaga - Pantauan Lingkungan Indonesia",
+  "short_name": "GeoSiaga",
   "description": "Dashboard Real-time Kualitas Udara (AQI), Cuaca BMKG, Indeks UV & Gempa Bumi Indonesia",
   "start_url": "/",
   "display": "standalone",
@@ -16,10 +16,10 @@
   ],
   "widgets": [
     {
-      "name": "Sekitarku AQI & Cuaca",
-      "short_name": "Sekitarku",
+      "name": "GeoSiaga AQI & Cuaca",
+      "short_name": "GeoSiaga",
       "description": "Pantau kualitas udara & cuaca BMKG real-time di layar utama HP Anda",
-      "tag": "sekitarku-widget",
+      "tag": "geosiaga-widget",
       "template": "widget-template",
       "ms_ac_template": "/widget.json",
       "data": "/api/widget",

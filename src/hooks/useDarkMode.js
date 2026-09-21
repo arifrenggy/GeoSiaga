@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 export function useDarkMode() {
   const [isDark, setIsDark] = useState(() => {
     try {
-      const saved = localStorage.getItem('sekitarku-theme');
+      const saved = localStorage.getItem('geosiaga-theme');
       if (saved !== null) {
         return saved === 'dark';
       }
@@ -17,12 +17,12 @@ export function useDarkMode() {
     if (isDark) {
       root.setAttribute('data-theme', 'dark');
       try {
-        localStorage.setItem('sekitarku-theme', 'dark');
+        localStorage.setItem('geosiaga-theme', 'dark');
       } catch (e) {}
     } else {
       root.removeAttribute('data-theme');
       try {
-        localStorage.setItem('sekitarku-theme', 'light');
+        localStorage.setItem('geosiaga-theme', 'light');
       } catch (e) {}
     }
   }, [isDark]);

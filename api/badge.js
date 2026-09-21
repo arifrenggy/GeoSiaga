@@ -46,7 +46,7 @@ export default function handler(request) {
   
   <g clip-path="url(#pillClip)">
     <rect x="0" y="0" width="85" height="32" fill="url(#brandGrad)" />
-    <text x="10" y="20" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="800" fill="#ffffff">🌿 Sekitarku</text>
+    <text x="10" y="20" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="800" fill="#ffffff">🌿 GeoSiaga</text>
     
     <rect x="85" y="0" width="115" height="32" fill="#1e293b" />
     <text x="95" y="20" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#f8fafc">${city} (${temp}°C)</text>

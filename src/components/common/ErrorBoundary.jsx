@@ -12,12 +12,12 @@ export class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('Sekitarku Runtime Error:', error, errorInfo);
+    console.error('GeoSiaga Runtime Error:', error, errorInfo);
   }
 
   handleReload = () => {
     try {
-      localStorage.removeItem('sekitarku-theme');
+      localStorage.removeItem('geosiaga-theme');
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(registrations => {
           for (const reg of registrations) reg.unregister();
@@ -71,7 +71,7 @@ export class ErrorBoundary extends React.Component {
                 fontSize: '0.875rem'
               }}
             >
-              <RefreshCw size={16} /> Muat Ulang Sekitarku
+              <RefreshCw size={16} /> Muat Ulang GeoSiaga
             </button>
           </div>
         </div>

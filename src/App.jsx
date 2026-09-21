@@ -150,7 +150,7 @@ export function App() {
   useEffect(() => {
     if (typeof document !== 'undefined') {
       const aqiStr = airQualityData?.current?.aqi ? `AQI ${airQualityData.current.aqi}` : 'Real-Time';
-      document.title = `Sekitarku: ${location.name} • ${aqiStr} & Cuaca BMKG`;
+      document.title = `GeoSiaga: ${location.name} • ${aqiStr} & Cuaca BMKG`;
       const metaDesc = document.querySelector('meta[name="description"]');
       if (metaDesc) {
         metaDesc.setAttribute(
@@ -205,7 +205,7 @@ export function App() {
     const perm = await Notification.requestPermission();
     if (perm === 'granted') {
       setNotificationsEnabled(true);
-      new Notification('Sekitarku Aktif', {
+      new Notification('GeoSiaga Aktif', {
         body: 'Notifikasi peringatan gempa, gunung api & kualitas udara berhasil diaktifkan.',
         icon: '/leaf.svg'
       });
@@ -452,7 +452,7 @@ export function App() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <Download size={18} color="var(--color-primary)" />
             <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-main)' }}>
-              Pasang aplikasi Sekitarku di layar utama HP Anda untuk akses instan & offline.
+              Pasang aplikasi GeoSiaga di layar utama HP Anda untuk akses instan & offline.
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

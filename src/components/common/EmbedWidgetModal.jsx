@@ -22,13 +22,13 @@ export function EmbedWidgetModal({ isOpen, onClose, location, airQualityData, we
   const temp = Math.round(weatherData?.current?.temperature || weatherData?.current?.temperature_2m || 30);
   const weatherLabel = weatherData?.current?.weatherCodeInfo?.label || 'Cerah Berawan';
 
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://sekitarku.vercel.app';
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://geosiaga.vercel.app';
   
   // Web Iframe & Markdown Badge
   const iframeUrl = `${baseUrl}/?embed=true&city=${encodeURIComponent(cityName)}`;
-  const iframeCode = `<iframe src="${iframeUrl}" width="340" height="190" frameborder="0" style="border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.1);" title="Sekitarku Live Widget - ${cityName}"></iframe>`;
+  const iframeCode = `<iframe src="${iframeUrl}" width="340" height="190" frameborder="0" style="border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.1);" title="GeoSiaga Live Widget - ${cityName}"></iframe>`;
   const badgeUrl = `${baseUrl}/api/badge?city=${encodeURIComponent(cityName)}&aqi=${aqiVal}&status=${encodeURIComponent(aqiInfo.label)}&temp=${temp}`;
-  const markdownBadge = `[![Sekitarku AQI & Cuaca ${cityName}](${badgeUrl})](${baseUrl})`;
+  const markdownBadge = `[![GeoSiaga AQI & Cuaca ${cityName}](${badgeUrl})](${baseUrl})`;
 
   const handleCopy = (text, type) => {
     navigator.clipboard.writeText(text);
@@ -62,7 +62,7 @@ export function EmbedWidgetModal({ isOpen, onClose, location, airQualityData, we
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                Pasang Widget Web Sekitarku
+                Pasang Widget Web GeoSiaga
               </h3>
               <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                 Sematkan kartu kualitas udara & cuaca live di website, blog, atau GitHub README Anda
@@ -97,7 +97,7 @@ export function EmbedWidgetModal({ isOpen, onClose, location, airQualityData, we
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Leaf size={16} color="var(--color-primary)" />
                 <strong style={{ fontSize: '0.9rem', color: 'var(--text-main)', fontWeight: '800' }}>
-                  Sekitarku • {cityName}
+                  GeoSiaga • {cityName}
                 </strong>
               </div>
               <span
@@ -157,7 +157,7 @@ export function EmbedWidgetModal({ isOpen, onClose, location, airQualityData, we
             >
               <div style={{ backgroundColor: '#10b981', color: '#ffffff', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <Leaf size={14} color="var(--color-primary)" />
-                <span>Sekitarku</span>
+                <span>GeoSiaga</span>
               </div>
               <div style={{ backgroundColor: '#1e293b', color: '#f8fafc', padding: '5px 10px' }}>
                 {cityName} ({temp}°C)
