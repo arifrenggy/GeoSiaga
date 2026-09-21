@@ -24,7 +24,7 @@ export default async function handler(request) {
 
   try {
     // Bounding box Indonesia (Sumatera s.d. Papua), data 24 jam terakhir
-    const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${MAP_KEY}/VIIRS_SNPP_NRT/94.5/-11.5/141.5/7.5/1`;
+    const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${MAP_KEY}/VIIRS_SNPP_NRT/94.5,-11.5,141.5,7.5/1`;
     const res = await fetch(url, { headers: { 'Accept': 'text/csv' } });
 
     if (!res.ok) {
@@ -79,7 +79,7 @@ function parseFirmsCsv(csv) {
       lon: parseFloat(cols[iLon]),
       acqDate: cols[iDate],
       acqTime: cols[iTime],
-      satellite: cols[iSat] || 'VIIRS SNPP',
+      satellite: { 'N': 'VIIRS SNPP', 'NPP': 'VIIRS SNPP', 'JPSS-1': 'VIIRS NOAA-20' }[cols[iSat]] || cols[iSat] || 'VIIRS SNPP',
       confidenceRaw: conf,
       confidence: conf === 'h' ? 'Tinggi' : conf === 'n' ? 'Sedang' : 'Rendah',
       brightnessK: iBright >= 0 ? Math.round(parseFloat(cols[iBright]) * 10) / 10 : null,
