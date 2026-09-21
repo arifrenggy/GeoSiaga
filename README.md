@@ -182,6 +182,25 @@ Sistem GeoSiaga dirancang dengan standar performa tinggi untuk menjamin kecepata
 
 Data gempa (BMKG), cuaca & kualitas udara (Open-Meteo), dan status gunung api (halaman resmi MAGMA ESDM) tidak membutuhkan kunci API.
 
+## 🚀 Menjalankan di Hosting Mana Pun (Tanpa Vercel)
+
+GeoSiaga sekarang menyertakan server Node mandiri (`server.mjs`) — satu perintah, jalan di
+hosting apa pun yang bisa menjalankan Node.js 18+ (Railway, Render, VPS, Docker, dll.):
+
+```
+npm install
+npm run build
+npm start          # jalankan server di http://localhost:3000 (port mengikuti process.env.PORT)
+```
+
+Server ini menyajikan frontend hasil build (`dist/`) *sekaligus* API function yang sama
+persis dengan versi Vercel (`/api/hotspots`, `/api/volcanoes`, `/api/widget`, `/api/badge`).
+`FIRMS_MAP_KEY` dibaca otomatis dari environment variable atau file `.env`.
+
+Catatan portabilitas:
+- `/api/og` (kartu preview sosial media) memakai `@vercel/og` sehingga hanya jalan di Vercel — fitur lain tidak terpengaruh.
+- Untuk development lokal dengan fungsi API: `vercel dev`, atau cukup `npm run build && npm start` untuk mencoba mode produksi.
+
 ## 🛠️ Tumpukan Teknologi (Tech Stack)
 
 - **Framework**: [React 19](https://react.dev/) + [Vite 8](https://vitejs.dev/)
