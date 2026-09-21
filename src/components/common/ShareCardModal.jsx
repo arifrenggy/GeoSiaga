@@ -19,7 +19,7 @@ import { getAqiInfo } from '../../utils/aqi.js';
 import { calculateEcoHealthScore } from '../../utils/healthIndex.js';
 import { getWeatherVisual } from '../../utils/weatherIcons.jsx';
 import { formatFullCurrentDate } from '../../utils/format.js';
-import { calculateFdrs, getNearbyHotspots, getHazeStatus } from '../../utils/karhutla.js';
+import { calculateFdrs, getHazeStatus } from '../../utils/karhutla.js';
 import { translations } from '../../utils/i18n.js';
 
 export function ShareCardModal({ isOpen, onClose, location, airQualityData, weatherData, latestEarthquake, karhutlaData }) {
@@ -45,14 +45,11 @@ export function ShareCardModal({ isOpen, onClose, location, airQualityData, weat
   const weatherVisual = getWeatherVisual(weatherCode);
   const dateFormatted = formatFullCurrentDate(new Date());
 
-  // Infallible Karhutla resolution
-  const activeKarhutla = karhutlaData || (location?.lat ? {
-    fdrs: calculateFdrs(weatherData),
-    nearest: getNearbyHotspots(location.lat, location.lon).nearest
-  } : null);
+  // Gunakan data karhutla real-time yang tersedia; tanpa data -> tampilan jujur (tidak ada titik api)
+  const activeKarhutla = karhutlaData || null;
 
   const fdrs = activeKarhutla?.fdrs || calculateFdrs(weatherData);
-  const nearestFire = activeKarhutla?.nearest || (location?.lat ? getNearbyHotspots(location.lat, location.lon).nearest : null);
+  const nearestFire = activeKarhutla?.nearest || null;
   
   // Cross-Correlation Kabut Asap
   const { isHazeActive, isVeryNear } = getHazeStatus(nearestFire, aqi, pm25);

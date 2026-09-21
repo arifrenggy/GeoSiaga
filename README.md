@@ -174,6 +174,14 @@ Sistem GeoSiaga dirancang dengan standar performa tinggi untuk menjamin kecepata
 
 ---
 
+## 🔑 Environment Variables
+
+| Variable | Keterangan |
+|---|---|
+| `FIRMS_MAP_KEY` | **Wajib untuk data titik panas karhutla.** Kunci API NASA FIRMS — registrasi gratis di https://firms.modaps.eosdis.nasa.gov/api/map_key/ . Setel di Vercel: *Project → Settings → Environment Variables*. Tanpa key ini, fitur hotspot menampilkan status jujur "data satelit tidak tersedia" (tidak ada data palsu). |
+
+Data gempa (BMKG), cuaca & kualitas udara (Open-Meteo), dan status gunung api (halaman resmi MAGMA ESDM) tidak membutuhkan kunci API.
+
 ## 🛠️ Tumpukan Teknologi (Tech Stack)
 
 - **Framework**: [React 19](https://react.dev/) + [Vite 8](https://vitejs.dev/)

@@ -35,7 +35,11 @@ export const FDRS_LEVELS = {
 };
 
 /**
- * Hitung Indeks Kemudahan Kebakaran (FDRS) berdasarkan cuaca lokal BMKG/Open-Meteo
+ * Estimasi tingkat kerawanan kebakaran lahan dari parameter cuaca LOKAL real-time
+ * (suhu, kelembapan, angin, curah hujan — data Open-Meteo).
+ *
+ * CATATAN JUJUR: ini adalah ESTIMASI berbasis skor, bukan indeks FDRS resmi BMKG
+ * (data FDRS BMKG tidak tersedia secara publik per-kota). Akurasi indikatif.
  */
 export function calculateFdrs(weatherData) {
   if (!weatherData?.current) return FDRS_LEVELS.LOW;
@@ -46,27 +50,22 @@ export function calculateFdrs(weatherData) {
   const windSpeed = Number(current.windSpeed ?? current.wind_speed_10m ?? 10);
   const precip = Number(current.precipitation ?? current.precip ?? 0);
 
-  // Rumus estimasi Fine Fuel Moisture Code (FFMC) & Fire Weather Index (FWI) standar FDRS BMKG
   let score = 0;
 
-  // Suhu udara
   if (temp >= 35) score += 40;
   else if (temp >= 32) score += 30;
   else if (temp >= 29) score += 15;
   else score += 5;
 
-  // Kelembapan relatif (semakin kering = semakin mudah terbakar)
   if (humidity <= 45) score += 40;
   else if (humidity <= 60) score += 25;
   else if (humidity <= 75) score += 10;
   else score += 0;
 
-  // Kecepatan angin (mempercepat suplai oksigen & penyebaran api)
   if (windSpeed >= 20) score += 20;
   else if (windSpeed >= 12) score += 10;
   else score += 5;
 
-  // Curah hujan (menurunkan risiko karhutla secara signifikan)
   if (precip > 5) score -= 45;
   else if (precip > 1) score -= 25;
 
@@ -79,192 +78,34 @@ export function calculateFdrs(weatherData) {
 }
 
 /**
- * Data Hotspot Satelit Real-Time Indonesia (Satelit VIIRS SNPP / NOAA-20 & MODIS Terra/Aqua)
+ * Format label koordinat hotspot satelit: "1.48°N, 101.99°E"
  */
-export const SATELLITE_HOTSPOTS = [
-  {
-    id: 'hs-riau-01',
-    regency: 'Kabupaten Bengkalis',
-    province: 'Riau',
-    island: 'Sumatera',
-    lat: 1.4821,
-    lon: 101.9934,
-    satellite: 'VIIRS SNPP',
-    confidence: 'Tinggi (94%)',
-    brightnessK: 348.5,
-    frpMw: 28.4,
-    type: 'Lahan Gambut',
-    detectedAt: 'Real-Time Satelit'
-  },
-  {
-    id: 'hs-riau-02',
-    regency: 'Kabupaten Rokan Hilir',
-    province: 'Riau',
-    island: 'Sumatera',
-    lat: 1.8312,
-    lon: 100.8241,
-    satellite: 'NOAA-20',
-    confidence: 'Sedang (78%)',
-    brightnessK: 326.2,
-    frpMw: 14.2,
-    type: 'Perkebunan / Semak',
-    detectedAt: 'Real-Time Satelit'
-  },
-  {
-    id: 'hs-sumsel-01',
-    regency: 'Kabupaten Ogan Komering Ilir (OKI)',
-    province: 'Sumatera Selatan',
-    island: 'Sumatera',
-    lat: -3.3821,
-    lon: 105.1245,
-    satellite: 'VIIRS SNPP',
-    confidence: 'Tinggi (91%)',
-    brightnessK: 352.1,
-    frpMw: 36.8,
-    type: 'Lahan Gambut Kering',
-    detectedAt: 'Real-Time Satelit'
-  },
-  {
-    id: 'hs-jambi-01',
-    regency: 'Kabupaten Muaro Jambi',
-    province: 'Jambi',
-    island: 'Sumatera',
-    lat: -1.5432,
-    lon: 103.8123,
-    satellite: 'MODIS Terra',
-    confidence: 'Sedang (82%)',
-    brightnessK: 329.4,
-    frpMw: 18.5,
-    type: 'Semak Belukar',
-    detectedAt: 'Real-Time Satelit'
-  },
-  {
-    id: 'hs-kalbar-01',
-    regency: 'Kabupaten Ketapang',
-    province: 'Kalimantan Barat',
-    island: 'Kalimantan',
-    lat: -1.8324,
-    lon: 110.1248,
-    satellite: 'VIIRS SNPP',
-    confidence: 'Tinggi (96%)',
-    brightnessK: 360.2,
-    frpMw: 44.1,
-    type: 'Gambut & Hutan Produksi',
-    detectedAt: 'Real-Time Satelit'
-  },
-  {
-    id: 'hs-kalbar-02',
-    regency: 'Kabupaten Kubu Raya',
-    province: 'Kalimantan Barat',
-    island: 'Kalimantan',
-    lat: -0.2145,
-    lon: 109.3412,
-    satellite: 'NOAA-20',
-    confidence: 'Sedang (75%)',
-    brightnessK: 322.8,
-    frpMw: 12.6,
-    type: 'Lahan Terbuka',
-    detectedAt: 'Real-Time Satelit'
-  },
-  {
-    id: 'hs-kalteng-01',
-    regency: 'Kabupaten Pulang Pisau',
-    province: 'Kalimantan Tengah',
-    island: 'Kalimantan',
-    lat: -2.7412,
-    lon: 114.2456,
-    satellite: 'VIIRS SNPP',
-    confidence: 'Tinggi (89%)',
-    brightnessK: 344.0,
-    frpMw: 26.3,
-    type: 'Lahan Gambut',
-    detectedAt: 'Real-Time Satelit'
-  },
-  {
-    id: 'hs-kalteng-02',
-    regency: 'Kota Palangka Raya',
-    province: 'Kalimantan Tengah',
-    island: 'Kalimantan',
-    lat: -2.1894,
-    lon: 113.8821,
-    satellite: 'MODIS Aqua',
-    confidence: 'Sedang (80%)',
-    brightnessK: 331.7,
-    frpMw: 16.9,
-    type: 'Semak Belukar',
-    detectedAt: 'Real-Time Satelit'
-  },
-  {
-    id: 'hs-kalsel-01',
-    regency: 'Kabupaten Banjar',
-    province: 'Kalimantan Selatan',
-    island: 'Kalimantan',
-    lat: -3.3145,
-    lon: 114.8912,
-    satellite: 'VIIRS SNPP',
-    confidence: 'Sedang (72%)',
-    brightnessK: 320.5,
-    frpMw: 11.4,
-    type: 'Lahan Pertanian',
-    detectedAt: 'Real-Time Satelit'
-  },
-  {
-    id: 'hs-kaltim-01',
-    regency: 'Kabupaten Kutai Kartanegara',
-    province: 'Kalimantan Timur',
-    island: 'Kalimantan',
-    lat: -0.4215,
-    lon: 116.9821,
-    satellite: 'VIIRS SNPP',
-    confidence: 'Tinggi (88%)',
-    brightnessK: 339.6,
-    frpMw: 22.0,
-    type: 'Area Hutan Tanaman',
-    detectedAt: 'Real-Time Satelit'
-  },
-  {
-    id: 'hs-papua-01',
-    regency: 'Kabupaten Merauke',
-    province: 'Papua Selatan',
-    island: 'Maluku & Papua',
-    lat: -7.8241,
-    lon: 139.7821,
-    satellite: 'VIIRS SNPP',
-    confidence: 'Tinggi (93%)',
-    brightnessK: 350.4,
-    frpMw: 32.1,
-    type: 'Savana / Padang Rumput',
-    detectedAt: 'Real-Time Satelit'
-  },
-  {
-    id: 'hs-ntt-01',
-    regency: 'Kabupaten Sumba Timur',
-    province: 'Nusa Tenggara Timur',
-    island: 'Bali & Nusa Tenggara',
-    lat: -9.8412,
-    lon: 120.2412,
-    satellite: 'NOAA-20',
-    confidence: 'Sedang (79%)',
-    brightnessK: 328.0,
-    frpMw: 15.0,
-    type: 'Savana Kering',
-    detectedAt: 'Real-Time Satelit'
-  }
-];
+export function formatHotspotLabel(lat, lon) {
+  if (typeof lat !== 'number' || typeof lon !== 'number' || isNaN(lat) || isNaN(lon)) return 'Lokasi tidak diketahui';
+  const ns = lat >= 0 ? 'N' : 'S';
+  const ew = lon >= 0 ? 'E' : 'W';
+  return `${Math.abs(lat).toFixed(2)}°${ns}, ${Math.abs(lon).toFixed(2)}°${ew}`;
+}
 
 /**
- * Hitung jarak hotspot ke koordinat pengguna
+ * Hitung jarak hotspot SATELIT REAL-TIME (NASA FIRMS) ke koordinat pengguna.
+ * Data hotspot datang dari /api/hotspots — TIDAK ADA LAGI DATA PALSU HARDCODE.
+ * Jika data tidak tersedia, hasilnya available: false dan UI menampilkan status jujur.
  */
-export function getNearbyHotspots(userLat, userLon, maxRadiusKm = 400) {
-  if (!userLat || !userLon) return { nearest: null, list: [], allHotspots: SATELLITE_HOTSPOTS, totalInIndo: SATELLITE_HOTSPOTS.length };
+export function getNearbyHotspots(hotspots, userLat, userLon, maxRadiusKm = 400) {
+  const list = Array.isArray(hotspots) ? hotspots : [];
 
-  const withDist = SATELLITE_HOTSPOTS.map((h) => {
-    const distanceKm = Math.round(calculateDistance(userLat, userLon, h.lat, h.lon) * 10) / 10;
-    return {
+  if (!userLat || !userLon || list.length === 0) {
+    return { nearest: null, nearbyList: [], allHotspots: [], totalInIndo: 0 };
+  }
+
+  const withDist = list
+    .map((h) => ({
       ...h,
-      distanceKm
-    };
-  }).sort((a, b) => a.distanceKm - b.distanceKm);
+      locationLabel: formatHotspotLabel(h.lat, h.lon),
+      distanceKm: Math.round(calculateDistance(userLat, userLon, h.lat, h.lon) * 10) / 10
+    }))
+    .sort((a, b) => a.distanceKm - b.distanceKm);
 
   const nearest = withDist[0] || null;
   const nearbyList = withDist.filter((h) => h.distanceKm <= maxRadiusKm);
@@ -273,10 +114,9 @@ export function getNearbyHotspots(userLat, userLon, maxRadiusKm = 400) {
     nearest,
     nearbyList,
     allHotspots: withDist,
-    totalInIndo: SATELLITE_HOTSPOTS.length
+    totalInIndo: list.length
   };
 }
-
 
 /**
  * Evaluasi Status Kabut Asap Terkini (Cross-Correlation Titik Panas & Kualitas Udara)

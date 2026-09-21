@@ -18,6 +18,7 @@ export function KarhutlaCard({ karhutlaData, airQualityData, location, onOpenMod
   const fdrs = karhutlaData.fdrs;
   const nearest = karhutlaData.nearest;
   const totalInIndo = karhutlaData.allHotspots?.length || 0;
+  const isSatelliteAvailable = karhutlaData.available === true;
 
   const aqi = airQualityData?.current?.aqi || 0;
   const pm25 = airQualityData?.current?.pm25 || airQualityData?.current?.pm2_5 || 0;
@@ -32,14 +33,16 @@ export function KarhutlaCard({ karhutlaData, airQualityData, location, onOpenMod
   let statusBorder = 'var(--border-flat)';
   let statusTextColor = 'var(--text-main)';
   let statusIcon = <ShieldCheck size={16} color="var(--color-primary)" />;
-  let statusMessage = 'Terdeteksi titik kebakaran lahan sangat dekat (' + nearest.distanceKm + ' km). Risiko asap pekat tinggi.';
+  let statusMessage = nearest
+    ? 'Terdeteksi titik kebakaran lahan sangat dekat (' + nearest.distanceKm + ' km). Risiko asap pekat tinggi.'
+    : 'Tidak ada titik panas satelit yang terdeteksi di sekitar lokasi Anda.';
 
   if (isHazeActive) {
     statusBannerBg = 'var(--color-danger-bg)';
     statusBorder = 'var(--color-danger)';
     statusTextColor = 'var(--color-danger)';
     statusIcon = <Wind size={16} color="var(--color-danger)" />;
-    statusMessage = `PERINGATAN KABUT ASAP: Udara terpapar asap kiriman dari titik api ${nearest?.regency || 'wilayah sekitar'} (${nearest?.distanceKm || 0} km). Lahan setempat aman dari api, namun gunakan masker N95 untuk pernapasan!`;
+    statusMessage = `PERINGATAN KABUT ASAP: Udara terpapar asap kiriman dari titik api di ${nearest?.locationLabel || 'wilayah sekitar'} (${nearest?.distanceKm || 0} km). Lahan setempat aman dari api, namun gunakan masker N95 untuk pernapasan!`;
   } else if (isHighRisk) {
     statusBannerBg = 'var(--color-danger-bg)';
     statusBorder = 'var(--color-danger)';
@@ -52,6 +55,15 @@ export function KarhutlaCard({ karhutlaData, airQualityData, location, onOpenMod
     statusTextColor = '#b45309';
     statusIcon = <AlertTriangle size={16} color="#b45309" />;
     statusMessage = `STATUS WASPADA: Semak & alang-alang mulai mengering. Hindari pembakaran sampah di ${location.name}.`;
+  }
+
+  // Status jujur saat data satelit tidak tersedia (key belum diset / NASA FIRMS down)
+  if (!isSatelliteAvailable) {
+    statusBannerBg = 'var(--bg-subtle)';
+    statusBorder = 'var(--border-flat)';
+    statusTextColor = 'var(--text-muted)';
+    statusIcon = <AlertTriangle size={16} color="#94a3b8" />;
+    statusMessage = karhutlaData.error || 'Data hotspot satelit real-time tidak tersedia saat ini.';
   }
 
   return (
@@ -84,7 +96,19 @@ export function KarhutlaCard({ karhutlaData, airQualityData, location, onOpenMod
 
         {/* Status Badges */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-          {isHazeActive ? (
+          {!isSatelliteAvailable ? (
+            <span style={{
+              fontSize: '0.725rem',
+              fontWeight: '800',
+              padding: '4px 10px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'rgba(148, 163, 184, 0.15)',
+              color: '#64748b',
+              border: '1px solid #94a3b8'
+            }}>
+              <span>DATA SATELIT TIDAK TERSEDIA</span>
+            </span>
+          ) : isHazeActive ? (
             <span style={{
               fontSize: '0.725rem',
               fontWeight: '800',
@@ -153,10 +177,10 @@ export function KarhutlaCard({ karhutlaData, airQualityData, location, onOpenMod
           {nearest ? (
             <div style={{ marginTop: '0.25rem' }}>
               <strong style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)', display: 'block' }}>
-                {nearest.regency}
+                {nearest.locationLabel}
               </strong>
               <span style={{ fontSize: '0.775rem', color: 'var(--text-muted)', display: 'block', fontWeight: '600', marginTop: '0.1rem' }}>
-                {nearest.province} · {nearest.type}
+                {nearest.satellite} · {nearest.acqDate} {String(nearest.acqTime).padStart(4, '0').slice(0, 2)}:{String(nearest.acqTime).padStart(4, '0').slice(2)} UTC · Confidence {nearest.confidence}
               </span>
               <div style={{ marginTop: '0.45rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <Compass size={16} color="var(--color-primary)" />

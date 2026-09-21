@@ -1,21 +1,5 @@
 import { apiCache } from '../utils/apiCache.js';
 
-export function getDefaultEarthquake() {
-  return {
-    date: '10 Sep 2026',
-    time: '22:00:00 WIB',
-    dateTime: '10 Sep 2026 22:00:00 WIB',
-    lat: -6.82,
-    lon: 107.14,
-    magnitude: 3.8,
-    depth: '10 km',
-    wilayah: 'Pusat gempa berada di darat 12 km BaratDaya Kab. Cianjur',
-    potensi: 'Tidak berpotensi tsunami',
-    dirasakan: 'II-III Cianjur',
-    shakemap: null
-  };
-}
-
 export async function fetchLatestEarthquake(forceRefresh = false) {
   const cacheKey = 'bmkg_autogempa';
 
@@ -35,7 +19,8 @@ export async function fetchLatestEarthquake(forceRefresh = false) {
     if (!res.ok) throw new Error(`BMKG Error: ${res.status}`);
     const data = await res.json();
     const gempa = data?.Infogempa?.gempa;
-    if (!gempa) return getDefaultEarthquake();
+    // JUJUR: tanpa data gempa valid, kembalikan cache lama atau null (bukan gempa palsu)
+    if (!gempa) return apiCache.get(cacheKey) || null;
 
     const [latStr, lonStr] = gempa.Coordinates ? gempa.Coordinates.split(',') : [0, 0];
     const formatted = {
@@ -56,7 +41,7 @@ export async function fetchLatestEarthquake(forceRefresh = false) {
     return formatted;
   } catch (error) {
     console.warn('Gagal memuat gempa terkini BMKG:', error.message);
-    return apiCache.get(cacheKey) || getDefaultEarthquake();
+    return apiCache.get(cacheKey) || null;
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
   }
@@ -102,7 +87,7 @@ export async function fetchRecentEarthquakes(forceRefresh = false) {
     return formatted;
   } catch (error) {
     console.warn('Gagal memuat daftar gempa BMKG:', error.message);
-    return apiCache.get(cacheKey) || [getDefaultEarthquake()];
+    return apiCache.get(cacheKey) || [];
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
   }

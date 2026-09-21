@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Flame, X, Search, Satellite, Thermometer, Zap, MapPin } from 'lucide-react';
-import { SATELLITE_HOTSPOTS } from '../../utils/karhutla';
 import { calculateDistance } from '../../utils/geo';
 
 const REGIONS = ['Semua', 'Sumatera', 'Kalimantan', 'Bali & Nusa Tenggara', 'Maluku & Papua'];
@@ -10,7 +9,7 @@ const CONFIDENCE_FILTERS = [
   { id: 'MODERATE', label: 'Sedang (70-85%)' }
 ];
 
-export function KarhutlaListModal({ isOpen, onClose, userLocation, onSelectHotspot }) {
+export function KarhutlaListModal({ isOpen, onClose, userLocation, onSelectHotspot, hotspots = [], unavailable = false, error = null }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('Semua');
   const [confidenceFilter, setConfidenceFilter] = useState('ALL');
@@ -27,19 +26,18 @@ export function KarhutlaListModal({ isOpen, onClose, userLocation, onSelectHotsp
   if (!isOpen) return null;
 
   const hotspotsWithDistance = useMemo(() => {
-    return SATELLITE_HOTSPOTS.map((h) => {
+    return hotspots.map((h) => {
       const dist = userLocation?.lat && userLocation?.lon
         ? Math.round(calculateDistance(userLocation.lat, userLocation.lon, h.lat, h.lon) * 10) / 10
         : null;
       return { ...h, distanceKm: dist };
     }).sort((a, b) => (a.distanceKm || 0) - (b.distanceKm || 0));
-  }, [userLocation]);
+  }, [hotspots, userLocation]);
 
   const filteredHotspots = useMemo(() => {
     return hotspotsWithDistance.filter((h) => {
-      const matchSearch = h.regency.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          h.province.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          h.type.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchSearch = (h.locationLabel || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (h.satellite || '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchRegion = selectedRegion === 'Semua' || h.island === selectedRegion;
 
       let matchConfidence = true;
@@ -181,7 +179,12 @@ export function KarhutlaListModal({ isOpen, onClose, userLocation, onSelectHotsp
 
         {/* Hotspots List */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {filteredHotspots.length === 0 ? (
+          {unavailable ? (
+            <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)' }}>
+              <p style={{ margin: 0, fontWeight: '700', fontSize: '0.9rem' }}>Data hotspot satelit real-time tidak tersedia</p>
+              <span style={{ fontSize: '0.75rem' }}>{error || 'Endpoint NASA FIRMS tidak dapat dihubungi saat ini.'}</span>
+            </div>
+          ) : filteredHotspots.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)' }}>
               <p style={{ margin: 0, fontWeight: '700', fontSize: '0.9rem' }}>Tidak ada titik panas yang cocok dengan filter</p>
               <span style={{ fontSize: '0.75rem' }}>Coba ubah kata kunci atau pilih region 'Semua'.</span>
@@ -191,7 +194,7 @@ export function KarhutlaListModal({ isOpen, onClose, userLocation, onSelectHotsp
               const isHigh = h.confidence.includes('Tinggi');
               return (
                 <div
-                  key={h.id}
+                  key={`${h.lat}_${h.lon}_${h.acqDate}_${h.acqTime}_${h.satellite}`}
                   style={{
                     padding: '0.85rem 1rem',
                     backgroundColor: 'var(--bg-card)',
@@ -207,7 +210,7 @@ export function KarhutlaListModal({ isOpen, onClose, userLocation, onSelectHotsp
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <strong style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                        {h.regency}
+                        {h.locationLabel || `${h.lat.toFixed(2)}, ${h.lon.toFixed(2)}`}
                       </strong>
                       <span style={{
                         fontSize: '0.675rem',
@@ -222,13 +225,13 @@ export function KarhutlaListModal({ isOpen, onClose, userLocation, onSelectHotsp
                     </div>
 
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600', display: 'block', marginTop: '0.15rem' }}>
-                      {h.province} ({h.island}) · {h.type}
+                      Terdeteksi {h.acqDate} · {String(h.acqTime).padStart(4, '0').slice(0, 2)}:{String(h.acqTime).padStart(4, '0').slice(2)} UTC
                     </span>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.35rem', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Satellite size={12} /> {h.satellite}</span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Thermometer size={12} /> {h.brightnessK} K</span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Zap size={12} /> {h.frpMw} MW</span>
+                      {h.brightnessK != null && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Thermometer size={12} /> {h.brightnessK} K</span>}
+                      {h.frpMw != null && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Zap size={12} /> {h.frpMw} MW</span>}
                     </div>
                   </div>
 

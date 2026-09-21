@@ -4,7 +4,6 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { INDONESIA_CITIES } from '../../utils/cities';
 import { INDONESIA_VOLCANOES, VOLCANO_STATUS_LEVELS } from '../../utils/volcanoes';
-import { SATELLITE_HOTSPOTS } from '../../utils/karhutla';
 import { translations } from '../../utils/i18n';
 import { MapPin, Compass, ZoomIn, ZoomOut, Flame, Mountain, Activity, Satellite } from 'lucide-react';
 
@@ -221,7 +220,7 @@ function CustomMapControls({ onResetNusantara, onFocusCity, cityName }) {
   );
 }
 
-export function IndonesiaMap({ currentLocation, earthquakes, hotspots = SATELLITE_HOTSPOTS, onSelectCity, isDark = false }) {
+export function IndonesiaMap({ currentLocation, earthquakes, hotspots = [], onSelectCity, isDark = false }) {
   const t = translations;
   const initialCenter = useMemo(() => [currentLocation?.lat || -2.5489, currentLocation?.lon || 118.0149], [currentLocation?.lat, currentLocation?.lon]);
   

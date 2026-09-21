@@ -9,6 +9,7 @@ import { UvCard } from './components/cards/UvCard';
 import { VolcanoCard } from './components/cards/VolcanoCard';
 import { KarhutlaCard } from './components/cards/KarhutlaCard';
 import { fetchKarhutlaData } from './services/karhutla';
+import { refreshVolcanoStatuses } from './services/volcano';
 import { Footer } from './components/common/Footer';
 import { WidgetEmbedView } from './components/embed/WidgetEmbedView';
 import { INDONESIA_CITIES } from './utils/cities';
@@ -16,9 +17,9 @@ import { apiCache } from './utils/apiCache';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useDarkMode } from './hooks/useDarkMode';
 import { triggerHaptic } from './utils/haptics';
-import { fetchWeatherData, getDefaultWeather } from './services/weather';
-import { fetchAirQualityData, getDefaultAqi } from './services/airQuality';
-import { fetchLatestEarthquake, fetchRecentEarthquakes, getDefaultEarthquake } from './services/bmkg';
+import { fetchWeatherData } from './services/weather';
+import { fetchAirQualityData } from './services/airQuality';
+import { fetchLatestEarthquake, fetchRecentEarthquakes } from './services/bmkg';
 import { i18n } from './utils/i18n';
 import { Download, AlertTriangle, X, Loader2, WifiOff } from 'lucide-react';
 
@@ -123,7 +124,9 @@ export function App() {
   const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
   const [isVolcanoOpen, setIsVolcanoOpen] = useState(false);
   const [isKarhutlaOpen, setIsKarhutlaOpen] = useState(false);
-  const [karhutlaData, setKarhutlaData] = useState(() => fetchKarhutlaData(location?.lat || -6.1805, location?.lon || 106.8284, getDefaultWeather(location?.lat || -6.1805, location?.lon || 106.8284), false));
+  const [karhutlaData, setKarhutlaData] = useState(null);
+  // Tick untuk re-render setelah status gunung api live termuat
+  const [volcanoStatusTick, setVolcanoStatusTick] = useState(0);
   const [isWidgetOpen, setIsWidgetOpen] = useState(false);
 
   // PWA Prompt
@@ -228,6 +231,8 @@ export function App() {
 
   useEffect(() => {
     loadEarthquakeData();
+    // Status aktivitas gunung api real-time dari MAGMA ESDM (via /api/volcanoes)
+    refreshVolcanoStatuses().then(() => setVolcanoStatusTick((n) => n + 1));
   }, []);
 
   // Load City-Specific Data (Weather, AQI, Karhutla) with Instant SWR Cache
@@ -241,8 +246,7 @@ export function App() {
     if (cachedWeather && cachedAqi && !force) {
       setWeatherData(cachedWeather);
       setAirQualityData(cachedAqi);
-      const karhutla = fetchKarhutlaData(location.lat, location.lon, cachedWeather, false);
-      setKarhutlaData(karhutla);
+      fetchKarhutlaData(location.lat, location.lon, cachedWeather, false).then(setKarhutlaData);
       setLoading(false);
       // Revalidate in background silently
       Promise.all([
@@ -251,8 +255,7 @@ export function App() {
       ]).then(([freshWeather, freshAqi]) => {
         if (freshWeather) setWeatherData(freshWeather);
         if (freshAqi) setAirQualityData(freshAqi);
-        const freshKarhutla = fetchKarhutlaData(location.lat, location.lon, freshWeather, true);
-        setKarhutlaData(freshKarhutla);
+        fetchKarhutlaData(location.lat, location.lon, freshWeather, true).then(setKarhutlaData);
         setLastUpdated(new Date());
       }).catch(() => {});
       return;
@@ -269,7 +272,7 @@ export function App() {
       if (weather) setWeatherData(weather);
       if (aqi) setAirQualityData(aqi);
 
-      const karhutla = fetchKarhutlaData(location.lat, location.lon, weather, force);
+      const karhutla = await fetchKarhutlaData(location.lat, location.lon, weather, force);
       setKarhutlaData(karhutla);
       setLastUpdated(new Date());
 
@@ -431,6 +434,9 @@ export function App() {
             isOpen={isKarhutlaOpen}
             onClose={() => setIsKarhutlaOpen(false)}
             userLocation={location}
+            hotspots={karhutlaData?.allHotspots || []}
+            unavailable={karhutlaData ? karhutlaData.available !== true : false}
+            error={karhutlaData?.error || null}
           />
         </Suspense>
       )}

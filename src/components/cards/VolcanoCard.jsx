@@ -10,6 +10,7 @@ export function VolcanoCard({ location, onOpenModal, onFocusVolcano }) {
   if (!nearest) return null;
 
   const isHighAlert = nearest.statusLevel >= 3;
+  const isStatusUnknown = nearest.statusLevel === 0;
   const isNear = nearest.distanceKm <= 50;
 
   return (
@@ -104,8 +105,14 @@ export function VolcanoCard({ location, onOpenModal, onFocusVolcano }) {
         gap: '0.65rem'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 300px' }}>
-          {isHighAlert ? <AlertTriangle size={16} /> : <ShieldCheck size={16} color="var(--color-primary)" />}
-          <span>{isHighAlert ? t.volcanoAlertMsg : t.volcanoNormalMsg}</span>
+          {isHighAlert ? <AlertTriangle size={16} /> : <ShieldCheck size={16} color={isStatusUnknown ? '#94a3b8' : 'var(--color-primary)'} />}
+          <span>
+            {isHighAlert
+              ? t.volcanoAlertMsg
+              : isStatusUnknown
+                ? 'Status live MAGMA ESDM belum termuat. Cek status resmi terkini di magma.esdm.go.id.'
+                : t.volcanoNormalMsg}
+          </span>
         </div>
 
         <button
