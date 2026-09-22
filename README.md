@@ -174,17 +174,9 @@ Sistem GeoSiaga dirancang dengan standar performa tinggi untuk menjamin kecepata
 
 ---
 
-## 🔑 Environment Variables
+## 🚀 Menjalankan di Hosting Mana Pun
 
-| Variable | Keterangan |
-|---|---|
-| `FIRMS_MAP_KEY` | **Wajib untuk data titik panas karhutla.** Kunci API NASA FIRMS — registrasi gratis di https://firms.modaps.eosdis.nasa.gov/api/map_key/ . Setel di Vercel: *Project → Settings → Environment Variables*. Tanpa key ini, fitur hotspot menampilkan status jujur "data satelit tidak tersedia" (tidak ada data palsu). |
-
-Data gempa (BMKG), cuaca & kualitas udara (Open-Meteo), dan status gunung api (halaman resmi MAGMA ESDM) tidak membutuhkan kunci API.
-
-## 🚀 Menjalankan di Hosting Mana Pun (Tanpa Vercel)
-
-GeoSiaga sekarang menyertakan server Node mandiri (`server.mjs`) — satu perintah, jalan di
+GeoSiaga menyertakan server Node mandiri (`server.mjs`) — satu perintah, jalan di
 hosting apa pun yang bisa menjalankan Node.js 18+ (Railway, Render, VPS, Docker, dll.):
 
 ```
@@ -193,13 +185,23 @@ npm run build
 npm start          # jalankan server di http://localhost:3000 (port mengikuti process.env.PORT)
 ```
 
-Server ini menyajikan frontend hasil build (`dist/`) *sekaligus* API function yang sama
-persis dengan versi Vercel (`/api/hotspots`, `/api/volcanoes`, `/api/widget`, `/api/badge`).
-`FIRMS_MAP_KEY` dibaca otomatis dari environment variable atau file `.env`.
+Server ini menyajikan frontend hasil build (`dist/`) *sekaligus* seluruh API aplikasi
+(`/api/hotspots`, `/api/volcanoes`, `/api/widget`, `/api/badge`, notifikasi peringatan dini).
+Kunci dibaca otomatis dari environment variable atau file `.env`.
 
-Catatan portabilitas:
-- `/api/og` (kartu preview sosial media) memakai `@vercel/og` sehingga hanya jalan di Vercel — fitur lain tidak terpengaruh.
-- Untuk development lokal dengan fungsi API: `vercel dev`, atau cukup `npm run build && npm start` untuk mencoba mode produksi.
+Kunci yang dibutuhkan (semua gratis, salin ke `.env` di folder proyek):
+
+| Kunci | Keterangan |
+|---|---|
+| `FIRMS_MAP_KEY` | Untuk data titik panas karhutla — registrasi gratis di https://firms.modaps.eosdis.nasa.gov/api/map_key/ . Tanpa kunci ini, fitur hotspot menampilkan status jujur "data satelit tidak tersedia" (tidak ada data palsu). |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Untuk notifikasi peringatan dini — dibuat sendiri lewat `npx web-push generate-vapid-keys`. Tanpa kunci ini, aplikasi tetap jalan normal tanpa notifikasi. |
+
+Data gempa (BMKG), cuaca & kualitas udara (Open-Meteo), dan status gunung api (halaman resmi
+MAGMA ESDM) tidak membutuhkan kunci API sama sekali.
+
+Catatan:
+- `/api/og` (kartu preview sosial media) hanya tersedia bila di-host di Vercel — fitur lain tidak terpengaruh.
+- Untuk mencoba mode produksi di lokal: `npm run build && npm start`.
 
 ## 🔔 Notifikasi Peringatan Dini (Web Push berbasis daerah)
 
@@ -216,12 +218,8 @@ juga diputar langsung di aplikasi.
 
 Cara pakai:
 
-1. Set kunci VAPID di `.env` (jalankan `npx web-push generate-vapid-keys`):
-   ```
-   VAPID_PUBLIC_KEY=...
-   VAPID_PRIVATE_KEY=...
-   VAPID_SUBJECT=mailto:email@anda.com
-   ```
+1. Pastikan kunci VAPID sudah terisi di `.env` (lihat tabel di bagian *Menjalankan di
+   Hosting Mana Pun*):
 2. Jalankan server (`npm start`) — server otomatis memantau BMKG/Open-Meteo/FIRMS tiap 5 menit
 3. Warga: buka aplikasi, pilih kota — atau ketuk ikon GPS agar GeoSiaga memakai koordinat
    tepat lokasinya (nama kampung/desa dikenali otomatis via OpenStreetMap, jadi tidak harus
