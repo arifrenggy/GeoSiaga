@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getCurrentPosition } from '../utils/geo';
+import { getCurrentPosition, reverseGeocode } from '../utils/geo';
 import { INDONESIA_CITIES } from '../utils/cities';
 
 const STORAGE_KEY = 'geosiaga_saved_city';
@@ -72,9 +72,13 @@ export function useGeolocation() {
         }
       });
 
+      // Nama kampung/desa asli via OpenStreetMap; kalau tak tersedia
+      // (jaringan buruk), jatuh ke label kota terdekat seperti sebelumnya.
+      const place = await reverseGeocode(coords.latitude, coords.longitude);
       const gpsLocation = {
-        name: closestCity.name + ' (GPS)',
-        province: closestCity.province,
+        name: place ? place.name : closestCity.name + ' (GPS)',
+        province: place ? '' : closestCity.province,
+        detail: place ? place.detail : '',
         lat: coords.latitude,
         lon: coords.longitude,
         isGps: true

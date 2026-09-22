@@ -45,3 +45,34 @@ export const INDONESIA_BOUNDS = {
   center: [-2.5489, 118.0149],
   zoom: 5
 };
+
+/**
+ * Nama tempat dari koordinat (reverse geocoding) via OpenStreetMap Nominatim.
+ * Mendukung kampung/desa yang tidak ada di daftar kota — dipakai saat GPS aktif.
+ * Gratis; panggilan dibatasi per ketentuan pemakaian Nominatim (low volume OK).
+ * @returns {Promise<{name: string, detail: string}|null>}
+ */
+export async function reverseGeocode(lat, lon) {
+  try {
+    const url =
+      'https://nominatim.openstreetmap.org/reverse?format=jsonv2' +
+      '&lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon) +
+      '&zoom=13&accept-language=id';
+    const res = await fetch(url, {
+      signal: typeof AbortSignal !== 'undefined' ? AbortSignal.timeout(5000) : undefined
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const addr = data?.address || {};
+    const village =
+      addr.village || addr.town || addr.city || addr.hamlet ||
+      addr.suburb || addr.municipality || data?.name || null;
+    if (!village) return null;
+    const detail = [addr.village || addr.town || addr.city, addr.municipality, addr.region || addr.state]
+      .filter(Boolean).filter((x, i, a) => a.indexOf(x) === i)
+      .join(', ');
+    return { name: village, detail: detail || data?.display_name || village };
+  } catch {
+    return null; // jaringan buruk / timeout: pemanggil pakai fallback
+  }
+}

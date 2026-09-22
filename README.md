@@ -223,7 +223,9 @@ Cara pakai:
    VAPID_SUBJECT=mailto:email@anda.com
    ```
 2. Jalankan server (`npm start`) — server otomatis memantau BMKG/Open-Meteo/FIRMS tiap 5 menit
-3. Warga: buka aplikasi, pilih kota, ketuk ikon lonceng di header dan izinkan notifikasi
+3. Warga: buka aplikasi, pilih kota — atau ketuk ikon GPS agar GeoSiaga memakai koordinat
+   tepat lokasinya (nama kampung/desa dikenali otomatis via OpenStreetMap, jadi tidak harus
+   ada di daftar kota) — lalu ketuk ikon lonceng di header dan izinkan notifikasi
 
 Catatan portabilitas: langganan disimpan di file `data/push-subscribers.json` (tanpa database).
 Di iOS, notifikasi push hanya berfungsi setelah aplikasi ditambahkan ke layar utama (PWA).
