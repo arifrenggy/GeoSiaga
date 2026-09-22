@@ -142,7 +142,16 @@ export function App() {
   const [isOnline, setIsOnline] = useState(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
+    const handleOnline = () => {
+      setIsOnline(true);
+      // Koneksi kembali: langsung sedot data terbaru (mode siaga terbatas)
+      loadData(true);
+      // Daftarkan background sync: begitu sinyal hidup lagi di lain waktu
+      // (bahkan aplikasi tertutup), service worker menyegarkan cache otomatis
+      navigator.serviceWorker?.ready
+        .then((reg) => reg.sync?.register('geosiaga-refresh'))
+        .catch(() => {});
+    };
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -150,6 +159,18 @@ export function App() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
+  }, []);
+
+  // Periodic background sync (PWA terpasang di Chrome/Android):
+  // cache data bencana disegarkan tiap beberapa jam tanpa membuka aplikasi
+  useEffect(() => {
+    if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.ready
+        .then((reg) =>
+          reg.periodicSync?.register('geosiaga-refresh', { minInterval: 6 * 60 * 60 * 1000 })
+        )
+        .catch(() => {});
+    }
   }, []);
 
   // Dynamic SEO Title & Meta Tag Synchronization

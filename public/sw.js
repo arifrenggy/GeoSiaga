@@ -132,6 +132,37 @@ async function updateWidgetData(widget) {
 }
 
 
+// ===== Penyegaran data otomatis (mode siaga terbatas) =====
+// Dipicu: (1) koneksi kembali saat aplikasi tertutup (Background Sync),
+// (2) PWA terpasang + Chrome (Periodic Background Sync),
+// (3) setiap push peringatan dini masuk.
+async function refreshLiveApiCache() {
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    const keys = await cache.keys();
+    for (const req of keys) {
+      const url = new URL(req.url);
+      if (url.hostname.includes('open-meteo.com') || url.hostname.includes('data.bmkg.go.id')) {
+        cache.add(req).catch(() => {});
+      }
+    }
+  } catch (e) {
+    console.log('[SW] Refresh cache dilewati:', e.message);
+  }
+}
+
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'geosiaga-refresh') {
+    event.waitUntil(refreshLiveApiCache());
+  }
+});
+
+self.addEventListener('periodicsync', (event) => {
+  if (event.tag === 'geosiaga-refresh') {
+    event.waitUntil(refreshLiveApiCache());
+  }
+});
+
 // ===== Web Push: Peringatan Dini GeoSiaga =====
 self.addEventListener('push', (event) => {
   let data = {};
@@ -153,7 +184,12 @@ self.addEventListener('push', (event) => {
     data: { url: data.url || '/' }
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(title, options),
+      refreshLiveApiCache()
+    ])
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {

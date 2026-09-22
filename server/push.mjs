@@ -168,12 +168,16 @@ function ensureWebpush() {
   return true;
 }
 
-async function sendPush(sub, payload) {
+async function sendPush(sub, payload, ttlSeconds = 3600) {
   if (!ensureWebpush()) return false;
   try {
     await webpush.sendNotification(
       { endpoint: sub.endpoint, keys: sub.keys },
-      JSON.stringify(payload)
+      JSON.stringify(payload),
+      // TTL: berapa lama pesan boleh mengantre saat perangkat offline (detik).
+      // Gempa 1 jam, hujan/karhutla 6 jam, tsunami 6 jam — supaya peringatan
+      // kedaluwarsa tidak muncul sebagai "baru" saat sinyal kembali.
+      { TTL: ttlSeconds }
     );
     return true;
   } catch (err) {
@@ -270,7 +274,7 @@ export async function checkEarthquakes(state, send = sendPush) {
       const dist = haversineKm(sub.city.lat, sub.city.lon, q.lat, q.lon);
       if (dist <= radius || tsunami) {
         for (const payload of buildQuakePayloads(q, sub)) {
-          await send(sub, payload);
+          await send(sub, payload, payload.tag.startsWith('tsunami-') ? 21600 : 3600);
           sent++;
         }
       }
@@ -338,7 +342,7 @@ export async function checkHeavyRain(state, send = sendPush) {
           url: '/',
           vibrate: ALARM_VIBRATE,
           requireInteraction: true
-        });
+        }, 21600);
         sent++;
       }
       state.lastRainWarn[key] = Date.now();
@@ -404,7 +408,7 @@ export async function checkWildfires(state, send = sendPush) {
         url: '/',
         vibrate: ALARM_VIBRATE,
         requireInteraction: false
-      });
+      }, 21600);
       sent++;
       state.lastKarhutlaWarn[key] = Date.now();
     }
