@@ -18,7 +18,7 @@ export function Footer({ onOpenWidget }) {
       {/* Traktir Kopi Support Button */}
       <div style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'center' }}>
         <a
-          href="https://sociabuzz.com/1rengblox/tribe"
+          href="https://sociabuzz.com/arifrenggy/tribe"
           target="_blank"
           rel="noopener noreferrer"
           style={{
