@@ -201,6 +201,34 @@ Catatan portabilitas:
 - `/api/og` (kartu preview sosial media) memakai `@vercel/og` sehingga hanya jalan di Vercel — fitur lain tidak terpengaruh.
 - Untuk development lokal dengan fungsi API: `vercel dev`, atau cukup `npm run build && npm start` untuk mencoba mode produksi.
 
+## 🔔 Notifikasi Peringatan Dini (Web Push berbasis daerah)
+
+GeoSiaga mengirim notifikasi ke perangkat warga *secara otomatis* saat server mendeteksi potensi bencana
+di sekitar daerah warga:
+
+- 🚨 *Gempa M ≥ 5.0* (data BMKG) — dikirim bila titik pusat gempa berada dalam radius dampak magnitudonya dari kota warga
+- ⚠️ *Potensi tsunami* — siaran ke seluruh pendaftar
+- 🌧️ *Hujan sangat lebat* (≥ 10 mm/jam, Open-Meteo) per kota — waspada banjir/longsor
+- 🔥 *Karhutla* — ≥ 3 titik api satelit (kepercayaan tinggi, NASA FIRMS) dalam radius 50 km dari kota
+
+Notifikasi muncul dengan pola getar alarm. Saat aplikasi terbuka dan gempa baru masuk, sirine dua nada
+juga diputar langsung di aplikasi.
+
+Cara pakai:
+
+1. Set kunci VAPID di `.env` (jalankan `npx web-push generate-vapid-keys`):
+   ```
+   VAPID_PUBLIC_KEY=...
+   VAPID_PRIVATE_KEY=...
+   VAPID_SUBJECT=mailto:email@anda.com
+   ```
+2. Jalankan server (`npm start`) — server otomatis memantau BMKG/Open-Meteo/FIRMS tiap 5 menit
+3. Warga: buka aplikasi, pilih kota, ketuk ikon lonceng di header dan izinkan notifikasi
+
+Catatan portabilitas: langganan disimpan di file `data/push-subscribers.json` (tanpa database).
+Di iOS, notifikasi push hanya berfungsi setelah aplikasi ditambahkan ke layar utama (PWA).
+Suara alarm mengikuti pengaturan notifikasi perangkat masing-masing.
+
 ## 🛠️ Tumpukan Teknologi (Tech Stack)
 
 - **Framework**: [React 19](https://react.dev/) + [Vite 8](https://vitejs.dev/)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { Header } from './components/common/Header';
 import { EcoHealthCard } from './components/cards/EcoHealthCard';
@@ -17,6 +17,8 @@ import { apiCache } from './utils/apiCache';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useDarkMode } from './hooks/useDarkMode';
 import { triggerHaptic } from './utils/haptics';
+import { registerDisasterPush } from './utils/push';
+import { playDisasterAlarm } from './utils/alarm';
 import { fetchWeatherData } from './services/weather';
 import { fetchAirQualityData } from './services/airQuality';
 import { fetchLatestEarthquake, fetchRecentEarthquakes } from './services/bmkg';
@@ -135,6 +137,7 @@ export function App() {
 
   // Notification state
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const lastQuakeIdRef = useRef(null);
   // Online / Offline Status
   const [isOnline, setIsOnline] = useState(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
 
@@ -208,8 +211,14 @@ export function App() {
     const perm = await Notification.requestPermission();
     if (perm === 'granted') {
       setNotificationsEnabled(true);
+      // Daftar ke server peringatan dini berbasis daerah (kota saat ini)
+      const result = location?.name
+        ? await registerDisasterPush(location)
+        : { ok: false, reason: 'no-city' };
       new Notification('GeoSiaga Aktif', {
-        body: 'Notifikasi peringatan gempa, gunung api & kualitas udara berhasil diaktifkan.',
+        body: result.ok
+          ? `Peringatan dini untuk wilayah ${location.name} aktif. Anda akan menerima notifikasi gempa, hujan ekstrem, dan karhutla di sekitar daerah Anda.`
+          : 'Notifikasi aktif di aplikasi. Pilih kota Anda agar peringatan dini berbasis daerah bisa berjalan.',
         icon: '/leaf.svg'
       });
     }
@@ -222,7 +231,26 @@ export function App() {
         fetchLatestEarthquake(force),
         fetchRecentEarthquakes(force)
       ]);
-      if (quake) setLatestEarthquake(quake);
+      if (quake) {
+        const isNew = lastQuakeIdRef.current !== null && lastQuakeIdRef.current !== quake.dateTime;
+        lastQuakeIdRef.current = quake.dateTime;
+        setLatestEarthquake(quake);
+        // Alarm in-app: gempa baru M>=5.0 saat aplikasi terbuka
+        if (
+          isNew &&
+          quake.magnitude >= 5 &&
+          notificationsEnabled &&
+          'Notification' in window &&
+          Notification.permission === 'granted'
+        ) {
+          playDisasterAlarm();
+          new Notification(`🚨 Gempa M${quake.magnitude.toFixed(1)} — ${quake.wilayah}`, {
+            body: `Kedalaman ${quake.depth} • ${quake.potensi}. Buka GeoSiaga untuk detail & panduan darurat.`,
+            icon: '/leaf.svg',
+            tag: 'gempa-terbaru'
+          });
+        }
+      }
       if (quakeList && quakeList.length > 0) setRecentEarthquakes(quakeList);
     } catch (err) {
       console.warn('Earthquake fetch error:', err);
@@ -294,6 +322,13 @@ export function App() {
   useEffect(() => {
     loadData();
   }, [location?.lat, location?.lon]);
+
+  // Saat kota berganti, perbarui langganan push ke daerah baru
+  useEffect(() => {
+    if (notificationsEnabled && location?.name && typeof location.lat === 'number') {
+      registerDisasterPush(location).catch(() => {});
+    }
+  }, [notificationsEnabled, location?.lat, location?.lon, location?.name]);
 
   // Touch Pull-to-Refresh on Mobile
   const [touchStart, setTouchStart] = useState(0);

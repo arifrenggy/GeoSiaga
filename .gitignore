@@ -26,3 +26,6 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+
+# Penyimpanan langganan push notification (berisi token warga)
+data/

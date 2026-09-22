@@ -21,6 +21,12 @@ import hotspotsHandler from './api/hotspots.js';
 import volcanoesHandler from './api/volcanoes.js';
 import widgetHandler from './api/widget.js';
 import badgeHandler from './api/badge.js';
+import {
+  pushPublicKeyHandler,
+  pushSubscribeHandler,
+  pushUnsubscribeHandler,
+  startPushWatcher
+} from './server/push.mjs';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const DIST_DIR = resolve(__dirname, 'dist');
@@ -50,7 +56,10 @@ const API_ROUTES = {
   '/api/hotspots': hotspotsHandler,
   '/api/volcanoes': volcanoesHandler,
   '/api/widget': widgetHandler,
-  '/api/badge': badgeHandler
+  '/api/badge': badgeHandler,
+  '/api/push/public-key': pushPublicKeyHandler,
+  '/api/push/subscribe': pushSubscribeHandler,
+  '/api/push/unsubscribe': pushUnsubscribeHandler
   // '/api/og' hanya tersedia di Vercel (butuh @vercel/og)
 };
 
@@ -97,11 +106,22 @@ async function serveStatic(pathname, res) {
   }
 }
 
+function readBody(req) {
+  return new Promise((resolve) => {
+    const chunks = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', () => resolve(Buffer.alloc(0)));
+  });
+}
+
 async function handleApi(handler, req, res) {
-  // Bangun Web Request standar dari IncomingMessage Node
+  // Bangun Web Request standar dari IncomingMessage Node (termasuk body POST)
+  const rawBody = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req) : undefined;
   const request = new Request(`http://localhost:${PORT}${req.url}`, {
     method: req.method,
-    headers: req.headers
+    headers: req.headers,
+    body: rawBody && rawBody.length ? rawBody : undefined
   });
 
   const response = await handler(request);
@@ -151,4 +171,6 @@ server.listen(PORT, () => {
   console.log(`[server] GeoSiaga berjalan di http://localhost:${PORT}`);
   console.log(`[server] Frontend: ${DIST_DIR}`);
   console.log(`[server] FIRMS_MAP_KEY: ${process.env.FIRMS_MAP_KEY ? 'tersedia ✓' : 'BELUM DISET — fitur hotspot akan tampil "tidak tersedia"'}`);
+  console.log(`[server] VAPID: ${process.env.VAPID_PUBLIC_KEY ? 'tersedia ✓ — notifikasi peringatan dini aktif' : 'BELUM DISET — jalankan `npx web-push generate-vapid-keys` lalu isi .env'}`);
+  startPushWatcher();
 });
