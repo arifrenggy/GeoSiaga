@@ -21,6 +21,8 @@ const POPULAR_CITIES = [
 export function CitySearchModal({ isOpen, onClose, onSelectCity, currentCity = {} }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('Semua');
+  const [remoteResults, setRemoteResults] = useState([]);
+  const [remoteLoading, setRemoteLoading] = useState(false);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -58,6 +60,50 @@ export function CitySearchModal({ isOpen, onClose, onSelectCity, currentCity = {
       );
     });
   }, [searchTerm, selectedRegion]);
+
+  // Pencarian nama tempat bebas (desa/kampung/permukiman) via Nominatim,
+  // jalan paralel dengan daftar kota bawaan. Debounce 700ms supaya hemat kuota
+  // dan sopan terhadap layanan publik OSM.
+  useEffect(() => {
+    const q = searchTerm.trim();
+    if (q.length < 3) {
+      setRemoteResults([]);
+      setRemoteLoading(false);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setRemoteLoading(true);
+      try {
+        const url =
+          'https://nominatim.openstreetmap.org/search?format=jsonv2' +
+          '&countrycodes=id&accept-language=id&limit=8&addressdetails=1&q=' +
+          encodeURIComponent(q);
+        const res = await fetch(url, {
+          signal: typeof AbortSignal !== 'undefined' ? AbortSignal.timeout(6000) : undefined
+        });
+        const data = res.ok ? await res.json() : [];
+        if (!cancelled) setRemoteResults(Array.isArray(data) ? data : []);
+      } catch {
+        if (!cancelled) setRemoteResults([]);
+      } finally {
+        if (!cancelled) setRemoteLoading(false);
+      }
+    }, 700);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [searchTerm]);
+
+  const handleSelectRemotePlace = (place) => {
+    triggerHaptic(12);
+    const province = place?.address?.state || place?.address?.region || '';
+    onSelectCity({
+      name: place?.name || (place?.display_name || 'Lokasi').split(',')[0],
+      province,
+      lat: Number(place?.lat),
+      lon: Number(place?.lon)
+    });
+    onClose();
+  };
 
   // Prefetch city data into cache on hover/touch for instant click response
   const prefetchCityData = (city) => {
@@ -117,7 +163,7 @@ export function CitySearchModal({ isOpen, onClose, onSelectCity, currentCity = {
                 <Compass size={18} strokeWidth={2.5} />
               </div>
               <h3 style={{ fontSize: '1.15rem', fontWeight: '800', margin: 0, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
-                Pilih Kota & Kabupaten
+                Pilih Lokasi Anda
               </h3>
             </div>
             <button
@@ -138,7 +184,7 @@ export function CitySearchModal({ isOpen, onClose, onSelectCity, currentCity = {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Cari 515 kota, kabupaten, atau provinsi..."
+              placeholder="Cari kota, kabupaten, desa, atau nama tempat..."
               style={{
                 width: '100%',
                 padding: '0.75rem 2.2rem 0.75rem 2.5rem',
@@ -248,11 +294,52 @@ export function CitySearchModal({ isOpen, onClose, onSelectCity, currentCity = {
             </span>
           </div>
 
-          {filteredCities.length === 0 ? (
+          {/* Hasil nama tempat bebas (desa/kampung) dari OpenStreetMap */}
+          {(remoteLoading || remoteResults.length > 0) && (
+            <div style={{ marginBottom: '0.85rem' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '0.45rem' }}>
+                {remoteLoading ? 'Mencari nama tempat lain...' : 'Nama tempat lain (desa/kampung):'}
+              </span>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.4rem' }}>
+                {remoteResults.map((place) => {
+                  const detail = (place.display_name || '')
+                    .split(',')
+                    .map((x) => x.trim())
+                    .filter((x) => x && x !== place.name && x !== 'Indonesia')
+                    .slice(0, 2)
+                    .join(', ');
+                  return (
+                    <button
+                      key={place.place_id || place.osm_id}
+                      onClick={() => handleSelectRemotePlace(place)}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        gap: '0.5rem', padding: '0.6rem 0.75rem', borderRadius: 'var(--radius-sm)',
+                        border: 'var(--border-thick)', backgroundColor: 'var(--bg-muted)',
+                        cursor: 'pointer', textAlign: 'left', color: 'var(--text-main)'
+                      }}
+                    >
+                      <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {place.name || place.display_name.split(',')[0]}
+                        </span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {detail}
+                        </span>
+                      </span>
+                      <MapPin size={14} strokeWidth={2.5} style={{ flexShrink: 0, color: 'var(--color-accent)' }} />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {filteredCities.length === 0 && remoteResults.length === 0 && !remoteLoading ? (
             <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
               <p style={{ fontSize: '0.95rem', fontWeight: '700', margin: 0, color: 'var(--text-main)' }}>Tidak ditemukan kota "{searchTerm}".</p>
               <p style={{ fontSize: '0.8rem', marginTop: '0.35rem' }}>
-                Periksa ejaan nama kota/kabupaten Anda atau pilih pulau lain.
+                Periksa ejaan, atau cari nama desa/kampung Anda, atau gunakan tombol GPS di halaman utama.
               </p>
             </div>
           ) : (
