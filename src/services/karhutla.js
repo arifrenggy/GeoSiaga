@@ -1,3 +1,4 @@
+import { apiEndpoint } from './apiBase.js';
 import { apiCache } from '../utils/apiCache.js';
 import { calculateFdrs, getNearbyHotspots } from '../utils/karhutla.js';
 
@@ -27,7 +28,7 @@ export async function fetchKarhutlaData(lat, lon, weatherData, forceRefresh = fa
   let satellite = { available: false, hotspots: [], totalDetected: 0, error: null, lastSync: null };
 
   try {
-    const res = await fetch('/api/hotspots', {
+    const res = await fetch(apiEndpoint('/api/hotspots'), {
       headers: { 'Accept': 'application/json' },
       signal: typeof AbortSignal !== 'undefined' ? AbortSignal.timeout(10000) : undefined
     });

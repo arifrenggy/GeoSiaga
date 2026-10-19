@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Copy, Check, Globe, Code2, Leaf } from 'lucide-react';
 import { getAqiInfo } from '../../utils/aqi';
+import { apiEndpoint } from '../../services/apiBase.js';
 
 export function EmbedWidgetModal({ isOpen, onClose, location, airQualityData, weatherData }) {
   const [copiedType, setCopiedType] = useState(null);
@@ -27,7 +28,7 @@ export function EmbedWidgetModal({ isOpen, onClose, location, airQualityData, we
   // Web Iframe & Markdown Badge
   const iframeUrl = `${baseUrl}/?embed=true&city=${encodeURIComponent(cityName)}`;
   const iframeCode = `<iframe src="${iframeUrl}" width="340" height="190" frameborder="0" style="border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.1);" title="GeoSiaga Live Widget - ${cityName}"></iframe>`;
-  const badgeUrl = `${baseUrl}/api/badge?city=${encodeURIComponent(cityName)}&aqi=${aqiVal}&status=${encodeURIComponent(aqiInfo.label)}&temp=${temp}`;
+  const badgeUrl = `${apiEndpoint('/api/badge')}?city=${encodeURIComponent(cityName)}&aqi=${aqiVal}&status=${encodeURIComponent(aqiInfo.label)}&temp=${temp}`;
   const markdownBadge = `[![GeoSiaga AQI & Cuaca ${cityName}](${badgeUrl})](${baseUrl})`;
 
   const handleCopy = (text, type) => {

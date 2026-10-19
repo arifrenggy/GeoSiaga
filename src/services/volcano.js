@@ -1,3 +1,4 @@
+import { apiEndpoint } from './apiBase.js';
 import { INDONESIA_VOLCANOES, VOLCANO_STATUS_LEVELS } from '../utils/volcanoes.js';
 import { calculateDistance } from '../utils/geo.js';
 import { apiCache } from '../utils/apiCache.js';
@@ -41,7 +42,7 @@ export async function refreshVolcanoStatuses(force = false) {
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timeoutId = controller ? setTimeout(() => controller.abort(), 10000) : null;
 
-    const res = await fetch('/api/volcanoes', {
+    const res = await fetch(apiEndpoint('/api/volcanoes'), {
       headers: { 'Accept': 'application/json' },
       signal: controller ? controller.signal : undefined
     });
