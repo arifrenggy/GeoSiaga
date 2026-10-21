@@ -40,8 +40,10 @@ export default async function handler(request) {
         source: 'NASA FIRMS VIIRS SNPP NRT',
         sourceUrl: 'https://firms.modaps.eosdis.nasa.gov/',
         fetchedAt: new Date().toISOString(),
+        v: 2, // format kompak: baris = [lat, lon, tanggal, waktu, satelitIdx, keyakinan, frp, brightness]
         totalDetected: hotspots.totalDetected, // total baris mentah 24 jam terakhir
-        hotspots: hotspots.rows // sudah difilter confidence & dibatasi jumlah
+        satellites: hotspots.satellites,
+        hotspots: hotspots.rows // seluruh hasil filter confidence, tanpa batas jumlah
       },
       200,
       'public, max-age=900' // cache 15 menit di edge, hemat kuota NASA
@@ -89,11 +91,30 @@ function parseFirmsCsv(csv) {
 
   // Hanya tampilkan deteksi bermutu sedang & tinggi, urut dari radiasi api terkuat.
   // Seluruh hasil filter dikirim (tanpa batas jumlah) agar sesuai data resmi NASA FIRMS.
-  const rows = all
+  const filtered = all
     .filter((h) => h.confidenceRaw !== 'l')
     .sort((a, b) => (b.frpMw || 0) - (a.frpMw || 0));
 
-  return { totalDetected: all.length, rows };
+  // Format kompak: koordinat 4 desimal (presisi ~11 m), satelit jadi indeks
+  const satellites = [];
+  const satIndex = (name) => {
+    let i = satellites.indexOf(name);
+    if (i === -1) { satellites.push(name); i = satellites.length - 1; }
+    return i;
+  };
+
+  const rows = filtered.map((h) => [
+    Math.round(h.lat * 10000) / 10000,
+    Math.round(h.lon * 10000) / 10000,
+    h.acqDate,
+    h.acqTime,
+    satIndex(h.satellite),
+    h.confidenceRaw === 'h' ? 2 : 1,
+    h.frpMw,
+    h.brightnessK
+  ]);
+
+  return { totalDetected: all.length, rows, satellites };
 }
 
 function json(body, status = 200, cacheControl = 'no-store') {
