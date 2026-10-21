@@ -396,6 +396,7 @@ export function IndonesiaMap({ currentLocation, earthquakes, hotspots = [], onSe
       <div className="map-wrapper" style={{ position: 'relative', width: '100%', height: '440px', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
         <MapContainer
           key={'map-container'}
+          preferCanvas={true}
           center={initialCenter}
           zoom={9}
           minZoom={4}

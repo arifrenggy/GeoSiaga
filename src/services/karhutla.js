@@ -36,9 +36,21 @@ export async function fetchKarhutlaData(lat, lon, weatherData, forceRefresh = fa
     if (res.ok) {
       const data = await res.json();
       if (data?.available && Array.isArray(data.hotspots)) {
+        // Format v2 (kompak): baris array [lat, lon, tanggal, waktu, satelitIdx, keyakinan, frp, brightness]
+        let hotspots = data.hotspots;
+        if (data.v === 2 && Array.isArray(data.hotspots[0])) {
+          const sats = data.satellites || [];
+          hotspots = data.hotspots.map(([lat, lon, acqDate, acqTime, satIdx, conf, frpMw, brightnessK]) => ({
+            lat, lon, acqDate, acqTime,
+            satellite: sats[satIdx] || 'VIIRS SNPP',
+            confidenceRaw: conf === 2 ? 'h' : 'n',
+            confidence: conf === 2 ? 'Tinggi' : 'Sedang',
+            frpMw, brightnessK
+          }));
+        }
         satellite = {
           available: true,
-          hotspots: data.hotspots,
+          hotspots: hotspots,
           totalDetected: data.totalDetected || data.hotspots.length,
           error: null,
           lastSync: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
