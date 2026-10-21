@@ -87,11 +87,11 @@ function parseFirmsCsv(csv) {
     });
   }
 
-  // Hanya tampilkan deteksi bermutu sedang & tinggi, urut dari radiasi api terkuat
+  // Hanya tampilkan deteksi bermutu sedang & tinggi, urut dari radiasi api terkuat.
+  // Seluruh hasil filter dikirim (tanpa batas jumlah) agar sesuai data resmi NASA FIRMS.
   const rows = all
     .filter((h) => h.confidenceRaw !== 'l')
-    .sort((a, b) => (b.frpMw || 0) - (a.frpMw || 0))
-    .slice(0, 300);
+    .sort((a, b) => (b.frpMw || 0) - (a.frpMw || 0));
 
   return { totalDetected: all.length, rows };
 }
