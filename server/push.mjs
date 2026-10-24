@@ -146,6 +146,19 @@ export async function pushSubscribeHandler(request) {
   }
 }
 
+function payloadUjiAlarm() {
+  return {
+    title: '🚨 UJI ALARM DARURAT GeoSiaga',
+    body: 'Ini notifikasi uji manual. Alarm akan berbunyi terus sampai Anda menekan Hentikan Alarm.',
+    tag: 'uji-alarm',
+    url: '/?alarm=1',
+    vibrate: ALARM_VIBRATE,
+    requireInteraction: true,
+    urgent: true,
+    level: 'urgent'
+  };
+}
+
 export async function pushTestHandler(request) {
   // kirim uji alarm darurat ke semua langganan — tanpa perlu restart server
   const subs = await loadSubscribers();
@@ -156,17 +169,9 @@ export async function pushTestHandler(request) {
   }
   let ok = 0;
   for (const sub of subs) {
-    const sukses = await sendPush(sub, {
-      title: '🚨 UJI ALARM DARURAT GeoSiaga',
-      body: 'Ini notifikasi uji manual. Alarm akan berbunyi terus sampai Anda menekan Hentikan Alarm.',
-      tag: 'uji-alarm',
-      url: '/?alarm=1',
-      vibrate: ALARM_VIBRATE,
-      requireInteraction: true,
-      urgent: true,
-      level: 'urgent'
-    }, 600);
+    const sukses = await sendPush(sub, payloadUjiAlarm(), 600);
     if (sukses) ok++;
+    ulangiAlarmDarurat(sub, payloadUjiAlarm());
   }
   console.log(`[push] Uji manual: terkirim ${ok} dari ${subs.length} langganan`);
   return new Response(JSON.stringify({ ok: true, terkirim: ok, total: subs.length }), {
@@ -332,6 +337,7 @@ export async function checkEarthquakes(state, send = sendPush) {
       if (dist <= radius || tsunami) {
         for (const payload of buildQuakePayloads(q, sub)) {
           await send(sub, payload, payload.tag.startsWith('tsunami-') ? 21600 : 3600);
+          ulangiAlarmDarurat(sub, payload, send);
           sent++;
         }
       }
@@ -474,6 +480,28 @@ export async function checkWildfires(state, send = sendPush) {
 }
 
 let dailyTimer = null;
+
+// --- Alarm darurat berbunyi berulang otomatis (tanpa pengaturan apa pun di HP) ---
+function alarmRepeatConfig() {
+  const n = Number.parseInt(String(process.env.PUSH_ALARM_REPEAT ?? '').trim(), 10);
+  return {
+    count: Number.isFinite(n) ? n : 4, // 0 = matikan pengulangan
+    sec: Number.parseInt(String(process.env.PUSH_ALARM_REPEAT_SEC ?? '').trim(), 10) || 40,
+  };
+}
+
+function ulangiAlarmDarurat(sub, payload, send = sendPush) {
+  if (!payload.urgent || !payload.tag) return;
+  const { count, sec } = alarmRepeatConfig();
+  if (count <= 0) return;
+  const ttl = payload.tag.startsWith('tsunami-') ? 21600 : 3600;
+  console.log(`[push] Alarm "${payload.tag}" akan dibunyikan ulang ${count}x tiap ${sec} detik`);
+  for (let i = 1; i <= count; i++) {
+    setTimeout(() => {
+      send(sub, { ...payload, renotify: true }, ttl);
+    }, i * sec * 1000);
+  }
+}
 
 // --- Laporan harian GeoSiaga (dikirim setiap hari walau tidak ada bencana) ---
 const DAILY_TZ_OFFSET_MIN = 8 * 60; // WITA = UTC+8
@@ -636,17 +664,9 @@ async function kirimUjiAlarm() {
   if (subs.length === 0) { console.log('[push] Uji alarm: belum ada langganan'); return; }
   let ok = 0;
   for (const sub of subs) {
-    const sukses = await sendPush(sub, {
-      title: '🚨 UJI ALARM DARURAT GeoSiaga',
-      body: 'Ini notifikasi uji. Alarm akan berbunyi terus sampai Anda menekan Hentikan Alarm.',
-      tag: 'uji-alarm',
-      url: '/?alarm=1',
-      vibrate: ALARM_VIBRATE,
-      requireInteraction: true,
-      urgent: true,
-      level: 'urgent'
-    }, 600);
+    const sukses = await sendPush(sub, payloadUjiAlarm(), 600);
     if (sukses) ok++;
+    ulangiAlarmDarurat(sub, payloadUjiAlarm());
   }
   console.log(`[push] Uji alarm: terkirim ${ok} dari ${subs.length} langganan`);
   if (ok < subs.length) {

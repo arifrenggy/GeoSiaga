@@ -185,6 +185,7 @@ self.addEventListener('push', (event) => {
     vibrate: isUrgent
       ? [500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500]
       : (data.vibrate || [200, 100, 200]),
+    renotify: isUrgent && !!data.tag, // setiap pengulangan membunyikan ulang alarm sistem
     data: { url: data.url || '/', urgent: isUrgent }
   };
 
