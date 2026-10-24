@@ -604,6 +604,7 @@ export async function checkWildfires(state, send = sendPush) {
 }
 
 let dailyTimer = null;
+let reportTimer = null;
 
 // --- Alarm darurat berbunyi berulang otomatis (tanpa pengaturan apa pun di HP) ---
 function alarmRepeatConfig() {
@@ -648,9 +649,9 @@ export function buildDailyDigest(sub, info) {
   }
   bagian.push(info.hazard ? `⚠️ ${info.hazard}` : 'Tidak ada peringatan aktif di wilayah Anda.');
   return {
-    title: `🌤️ Laporan Harian GeoSiaga — ${city.name}`,
+    title: `📋 Laporan Berkala GeoSiaga — ${city.name}`,
     body: `${bagian.join(' • ').replace(/\.$/, '')}. Kondisi ${info.hazard ? 'WASPADA' : 'aman hari ini'}.`,
-    tag: `harian-${new Date().toISOString().slice(0, 10)}`,
+    tag: `laporan-${new Date().toISOString().slice(0, 13)}`,
     url: '/',
     vibrate: [200, 100, 200],
     requireInteraction: false,
@@ -794,6 +795,19 @@ function jadwalkanStatusAcak() {
   };
   dailyTimer = setTimeout(tick, cfg.first * 60 * 1000);
   console.log(`[push] Mode status acak aktif: laporan pertama dalam ${cfg.first} menit, lalu acak ${cfg.min}-${cfg.max} menit`);
+
+  // laporan gabungan (cuaca + gempa + udara) terkirim rutin tiap jam — notif tersendiri
+  const everyRaw = String(process.env.PUSH_REPORT_EVERY_MIN ?? '').trim();
+  const every = Number.parseInt(everyRaw, 10);
+  if (every !== 0) {
+    const menit = every || 60;
+    const reportTick = async () => {
+      await sendDailyDigest().catch(() => {});
+      reportTimer = setTimeout(reportTick, menit * 60 * 1000);
+    };
+    reportTimer = setTimeout(reportTick, menit * 60 * 1000);
+    console.log(`[push] Laporan gabungan rutin: tiap ${menit} menit`);
+  }
 }
 
 function jadwalkanLaporanHarian(state) {
