@@ -172,6 +172,8 @@ self.addEventListener('push', (event) => {
     data = { title: 'GeoSiaga', body: event.data ? event.data.text() : '' };
   }
 
+  const isUrgent = data.urgent === true;
+  const isDaily = data.daily === true;
   const title = data.title || '🚨 GeoSiaga';
   const options = {
     body: data.body || '',
@@ -179,15 +181,23 @@ self.addEventListener('push', (event) => {
     badge: '/leaf.svg',
     tag: data.tag,
     silent: false, // biarkan sistem memutar suara notifikasi (alarm perangkat)
-    requireInteraction: data.requireInteraction !== false,
-    vibrate: data.vibrate || [500, 200, 500, 200, 500, 200, 500],
-    data: { url: data.url || '/' }
+    requireInteraction: isUrgent ? true : data.requireInteraction === true,
+    vibrate: isUrgent
+      ? [500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500]
+      : (data.vibrate || [200, 100, 200]),
+    data: { url: data.url || '/', urgent: isUrgent }
   };
 
   event.waitUntil(
     Promise.all([
       self.registration.showNotification(title, options),
-      refreshLiveApiCache()
+      refreshLiveApiCache(),
+      // Halaman yang sedang terbuka langsung membunyikan alarm bila darurat
+      isUrgent
+        ? self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+            list.forEach((client) => client.postMessage({ type: 'geosiaga-urgent', payload: data }));
+          })
+        : Promise.resolve()
     ])
   );
 });

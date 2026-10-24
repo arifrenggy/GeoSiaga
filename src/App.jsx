@@ -18,7 +18,7 @@ import { useGeolocation } from './hooks/useGeolocation';
 import { useDarkMode } from './hooks/useDarkMode';
 import { triggerHaptic } from './utils/haptics';
 import { registerDisasterPush } from './utils/push';
-import { playDisasterAlarm } from './utils/alarm';
+import { playDisasterAlarm, mulaiAlarm, hentikanAlarm, aktifkanAlarmSetelahInteraksi } from './utils/alarm';
 import { fetchWeatherData } from './services/weather';
 import { fetchAirQualityData } from './services/airQuality';
 import { fetchLatestEarthquake, fetchRecentEarthquakes } from './services/bmkg';
@@ -99,6 +99,38 @@ export function App() {
   const [recentEarthquakes, setRecentEarthquakes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [alarmAktif, setAlarmAktif] = useState(false);
+  const [alarmPesan, setAlarmPesan] = useState(null);
+
+  // ===== Alarm Darurat GeoSiaga =====
+  const nyalakanAlarm = (pesan) => {
+    setAlarmAktif(true);
+    setAlarmPesan(pesan);
+    const ok = mulaiAlarm();
+    if (!ok) aktifkanAlarmSetelahInteraksi();
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    // pemicu uji dari browser: ?test_alarm=1 (tanpa menunggu push)
+    if (params.get('test_alarm') === '1') {
+      nyalakanAlarm({ title: 'UJI ALARM', body: 'Ini alarm uji GeoSiaga. Bunyi akan berhenti saat Anda menekan Hentikan Alarm.' });
+    }
+    // pemicu dari klik notifikasi darurat: ?alarm=1
+    if (params.get('alarm') === '1') {
+      nyalakanAlarm({ title: 'PERINGATAN DARURAT', body: 'Buka panel bencana untuk detail kejadian di wilayah Anda.' });
+    }
+    // pesan live dari service worker saat push darurat masuk & halaman terbuka
+    const onSwMessage = (event) => {
+      if (event.data && event.data.type === 'geosiaga-urgent') {
+        const p = event.data.payload || {};
+        nyalakanAlarm({ title: p.title || 'PERINGATAN DARURAT', body: p.body || '' });
+      }
+    };
+    navigator.serviceWorker?.addEventListener('message', onSwMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', onSwMessage);
+  }, []);
 
   // Language state: 'id' or 'en'
   const t = i18n.id;
@@ -415,6 +447,30 @@ export function App() {
 
   return (
     <div className="app-container" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+      {alarmAktif && (
+        <div
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+            background: 'linear-gradient(90deg,#b91c1c,#dc2626)',
+            color: '#fff', padding: '14px 16px', textAlign: 'center',
+            boxShadow: '0 4px 18px rgba(0,0,0,.4)'
+          }}>
+          <div style={{ fontWeight: 800, letterSpacing: 0.5 }}>
+            🚨 {(alarmPesan && alarmPesan.title) || 'PERINGATAN DARURAT'}
+          </div>
+          <div style={{ fontSize: 13, marginTop: 4, opacity: 0.95 }}>
+            {(alarmPesan && alarmPesan.body) || 'Segera periksa informasi bencana di dasbor.'}
+          </div>
+          <button
+            onClick={() => { hentikanAlarm(); setAlarmAktif(false); setAlarmPesan(null); }}
+            style={{
+              marginTop: 10, padding: '8px 22px', fontWeight: 700, cursor: 'pointer',
+              background: '#fff', color: '#b91c1c', border: 'none', borderRadius: 999
+            }}>
+            Hentikan Alarm
+          </button>
+        </div>
+      )}
       {/* Header */}
       <Header
         location={location}

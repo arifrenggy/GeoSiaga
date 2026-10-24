@@ -209,9 +209,11 @@ export function buildQuakePayloads(quake, subscriber) {
       title: `⚠️ PERINGATAN TSUNAMI — Gempa M${m.toFixed(1)}`,
       body: `${quake.wilayah} • Kedalaman ${quake.depth} • ${quake.potensi}. Segera menjauhi pantai dan menuju tempat tinggi! (${Math.round(distance)} km dari ${subscriber.city.name})`,
       tag: `tsunami-${quake.id}`,
-      url: '/',
+      url: '/?alarm=1',
       vibrate: ALARM_VIBRATE,
-      requireInteraction: true
+      requireInteraction: true,
+      urgent: true,
+      level: 'urgent'
     });
   }
 
@@ -219,9 +221,11 @@ export function buildQuakePayloads(quake, subscriber) {
     title: `🚨 Gempa M${m.toFixed(1)} — ${quake.wilayah}`,
     body: `Kedalaman ${quake.depth} • ${Math.round(distance)} km dari ${subscriber.city.name}${subscriber.city.province ? `, ${subscriber.city.province}` : ''} • ${quake.potensi || ''}`.trim(),
     tag: `gempa-${quake.id}`,
-    url: '/',
+    url: m >= 6 ? '/?alarm=1' : '/',
     vibrate: ALARM_VIBRATE,
-    requireInteraction: true
+    requireInteraction: true,
+    urgent: m >= 6,
+    level: m >= 6 ? 'urgent' : 'alert'
   });
 
   return payloads;
@@ -416,6 +420,127 @@ export async function checkWildfires(state, send = sendPush) {
   return sent;
 }
 
+let dailyTimer = null;
+
+// --- Laporan harian GeoSiaga (dikirim setiap hari walau tidak ada bencana) ---
+const DAILY_HOUR = Number(process.env.PUSH_DAILY_HOUR) || 7; // 07:00 WITA default
+const DAILY_TZ_OFFSET_MIN = 8 * 60; // WITA = UTC+8
+
+export function buildDailyDigest(sub, info) {
+  const { city } = sub;
+  const bagian = [];
+  if (info.weather) {
+    bagian.push(`${info.weather.desc}. Suhu ${info.weather.temp}`);
+  }
+  if (info.quake) {
+    bagian.push(`Gempa terakhir: ${info.quake}`);
+  }
+  bagian.push(info.hazard ? `⚠️ ${info.hazard}` : 'Tidak ada peringatan aktif di wilayah Anda.');
+  return {
+    title: `🌤️ Laporan Harian GeoSiaga — ${city.name}`,
+    body: `${bagian.join(' • ')}. Kondisi ${info.hazard ? 'WASPADA' : 'aman hari ini'}.`,
+    tag: `harian-${new Date().toISOString().slice(0, 10)}`,
+    url: '/',
+    vibrate: [200, 100, 200],
+    requireInteraction: false,
+    daily: true,
+    level: 'info'
+  };
+}
+
+async function fetchCityWeather(city) {
+  try {
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,weather_code,precipitation_probability`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) return null;
+    const cur = (await res.json())?.current || {};
+    return { temp: `${Math.round(cur.temperature_2m ?? 0)}°C`, desc: deskripsiCuaca(cur.weather_code) };
+  } catch {
+    return null;
+  }
+}
+
+function deskripsiCuaca(code) {
+  if (code >= 61 && code <= 67) return 'Potensi hujan hari ini';
+  if (code >= 80 && code <= 82) return 'Hujan lokal';
+  if (code >= 95) return 'Ada badai/angin kencang';
+  if (code >= 2 && code <= 3) return 'Berawan';
+  return 'Cuaca relatif cerah';
+}
+
+async function sendDailyDigest() {
+  const subs = await loadSubscribers();
+  if (subs.length === 0) return 0;
+  let sent = 0;
+  for (const sub of subs) {
+    try {
+      const [weather] = await Promise.all([fetchCityWeather(sub.city)]);
+      let quakeInfo = null;
+      try {
+        const quakes = await fetchFeltQuakes();
+        const q = quakes && quakes[0];
+        if (q) quakeInfo = `M${q.magnitude.toFixed(1)} ${q.wilayah} (${q.tanggal})`;
+      } catch { quakeInfo = null; }
+      const payload = buildDailyDigest(sub, { weather, quake: quakeInfo, hazard: null });
+      const ok = await sendPush(sub, payload, 21600);
+      if (ok) sent++;
+    } catch (err) {
+      console.error('[push] Laporan harian gagal untuk', sub.city?.name, err.message);
+    }
+  }
+  console.log(`[push] Laporan harian terkirim ke ${sent} langganan`);
+  return sent;
+}
+
+function jadwalkanLaporanHarian(state) {
+  if (dailyTimer) return; // jadwal harian hanya dibuat sekali
+  const now = new Date();
+  const lokal = new Date(now.getTime() + (DAILY_TZ_OFFSET_MIN + now.getTimezoneOffset()) * 60000);
+  const target = new Date(lokal);
+  target.setHours(DAILY_HOUR, 0, 0, 0);
+  if (lokal >= target) target.setDate(target.getDate() + 1);
+  const tglHariIni = lokal.toISOString().slice(0, 10);
+  if (state.lastDailyDigest !== tglHariIni && (DAILY_HOUR * 60 - (lokal.getHours() * 60 + lokal.getMinutes())) <= 15) {
+    // sudah lewat jadwal hari ini & belum terkirim -> kirim sekarang
+    state.lastDailyDigest = tglHariIni;
+    sendDailyDigest().catch(() => {});
+  }
+  let ms = target - lokal;
+  const tick = () => {
+    const st = new Date();
+    const l = new Date(st.getTime() + (DAILY_TZ_OFFSET_MIN + st.getTimezoneOffset()) * 60000);
+    const hari = l.toISOString().slice(0, 10);
+    if (hari !== state.lastDailyDigest) {
+      state.lastDailyDigest = hari;
+      sendDailyDigest().catch(() => {});
+    }
+    dailyTimer = setTimeout(tick, 24 * 3600 * 1000);
+  };
+  dailyTimer = setTimeout(tick, ms);
+  console.log(`[push] Laporan harian dijadwalkan pukul ${String(DAILY_HOUR).padStart(2, '0')}:00 WITA`);
+}
+
+// --- Mode uji alarm (PUSH_TEST_ALARM=1): kirim notifikasi darurat percobaan saat server mulai ---
+async function kirimUjiAlarm() {
+  const subs = await loadSubscribers();
+  if (subs.length === 0) { console.log('[push] Uji alarm: belum ada langganan'); return; }
+  for (const sub of subs) {
+    await sendPush(sub, {
+      title: '🚨 UJI ALARM DARURAT GeoSiaga',
+      body: 'Ini notifikasi uji. Alarm akan berbunyi terus sampai Anda menekan Hentikan Alarm.',
+      tag: 'uji-alarm',
+      url: '/?alarm=1',
+      vibrate: ALARM_VIBRATE,
+      requireInteraction: true,
+      urgent: true,
+      level: 'urgent'
+    }, 600);
+  }
+  console.log(`[push] Uji alarm terkirim ke ${subs.length} langganan`);
+}
+
 // --- Loop pemantauan ---
 let watcherTimer = null;
 
@@ -432,6 +557,7 @@ export function startPushWatcher() {
       const n1 = await checkEarthquakes(state);
       const n2 = await checkHeavyRain(state);
       const n3 = await checkWildfires(state);
+      jadwalkanLaporanHarian(state);
       if (n1 + n2 + n3 > 0) {
         console.log(`[push] Terkirim: ${n1} gempa, ${n2} hujan, ${n3} karhutla`);
       }
@@ -445,6 +571,7 @@ export function startPushWatcher() {
   run();
   watcherTimer = setInterval(run, CHECK_INTERVAL_MIN * 60 * 1000);
   console.log(`[push] Pemantau bencana aktif (cek tiap ${CHECK_INTERVAL_MIN} menit)`);
+  if (process.env.PUSH_TEST_ALARM === '1') kirimUjiAlarm();
 }
 
 export function stopPushWatcher() {
