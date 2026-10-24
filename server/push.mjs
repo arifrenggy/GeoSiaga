@@ -133,6 +133,34 @@ export async function pushSubscribeHandler(request) {
   }
 }
 
+export async function pushTestHandler(request) {
+  // kirim uji alarm darurat ke semua langganan — tanpa perlu restart server
+  const subs = await loadSubscribers();
+  if (subs.length === 0) {
+    return new Response(JSON.stringify({ ok: false, pesan: 'Belum ada langganan' }), {
+      status: 404, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+  let ok = 0;
+  for (const sub of subs) {
+    const sukses = await sendPush(sub, {
+      title: '🚨 UJI ALARM DARURAT GeoSiaga',
+      body: 'Ini notifikasi uji manual. Alarm akan berbunyi terus sampai Anda menekan Hentikan Alarm.',
+      tag: 'uji-alarm',
+      url: '/?alarm=1',
+      vibrate: ALARM_VIBRATE,
+      requireInteraction: true,
+      urgent: true,
+      level: 'urgent'
+    }, 600);
+    if (sukses) ok++;
+  }
+  console.log(`[push] Uji manual: terkirim ${ok} dari ${subs.length} langganan`);
+  return new Response(JSON.stringify({ ok: true, terkirim: ok, total: subs.length }), {
+    status: 200, headers: { 'Content-Type': 'application/json' }
+  });
+}
+
 export async function pushUnsubscribeHandler(request) {
   try {
     const body = await request.json();
