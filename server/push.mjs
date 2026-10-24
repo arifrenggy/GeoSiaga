@@ -414,7 +414,131 @@ export async function checkHeavyRain(state, send = sendPush) {
   return sent;
 }
 
-// --- Pemeriksa 3: Karhutla dekat kota (NASA FIRMS) ---
+// --- Pemeriksa 3: Bakal hujan di kota warga (prakiraan) ---
+async function fetchRainOutlook(lat, lon) {
+  try {
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=precipitation_probability,precipitation&forecast_days=1&timezone=Asia%2FMakassar`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) return null;
+    const h = (await res.json())?.hourly || {};
+    const jamSekarang = new Date(Date.now() + 8 * 3600 * 1000).getUTCHours(); // WITA
+    const minProb = Number.parseInt(String(process.env.PUSH_RAIN_PROB || '').trim(), 10) || 60;
+    for (let i = 0; i < (h.time || []).length; i++) {
+      const jam = Number.parseInt(String(h.time[i]).slice(11, 13), 10);
+      if (jam < jamSekarang) continue;
+      const prob = h.precipitation_probability?.[i] ?? 0;
+      const mm = h.precipitation?.[i] ?? 0;
+      if (prob >= minProb || mm >= 0.5) {
+        return { jam: String(h.time[i]).slice(11, 16), prob: Math.max(prob, mm >= 0.5 ? 70 : 0) };
+      }
+    }
+  } catch { return null; }
+  return null;
+}
+
+export async function checkRainIncoming(state, send = sendPush) {
+  const subs = await loadSubscribers();
+  if (subs.length === 0) return 0;
+  const cities = new Map();
+  for (const s of subs) {
+    const key = `${s.city.name}_${s.city.lat.toFixed(2)}_${s.city.lon.toFixed(2)}`;
+    if (!cities.has(key)) cities.set(key, { city: s.city, subs: [] });
+    cities.get(key).subs.push(s);
+  }
+  const COOLDOWN_MS = 4 * 3600 * 1000; // jangan spam lebih dari sekali 4 jam per kota
+  let sent = 0;
+  for (const [key, group] of cities) {
+    const last = state.lastRainStart?.[key] || 0;
+    if (Date.now() - last < COOLDOWN_MS) continue;
+    const out = await fetchRainOutlook(group.city.lat, group.city.lon);
+    if (!out) continue;
+    for (const sub of group.subs) {
+      const ok = await send(sub, {
+        title: `🌧️ Bakal Hujan di ${group.city.name}`,
+        body: `Prakiraan hujan mulai sekitar pukul ${out.jam} WITA (peluang ${out.prob}%). Siapkan payung dan hati-hati jalan licin.`,
+        tag: `hujan-mulai-${key}`,
+        url: '/',
+        vibrate: [300, 100, 300],
+        requireInteraction: false
+      }, 14400);
+      if (ok) sent++;
+    }
+    state.lastRainStart = state.lastRainStart || {};
+    state.lastRainStart[key] = Date.now();
+  }
+  return sent;
+}
+
+// --- Pemeriksa 4: Kualitas udara berubah (segar / tidak sehat) ---
+async function fetchCityAqi(lat, lon) {
+  try {
+    const res = await fetch(
+      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) return null;
+    const aqi = (await res.json())?.current?.european_aqi;
+    if (aqi == null) return null;
+    const label = aqi <= 20 ? 'Baik' : aqi <= 40 ? 'Cukup' : aqi <= 60 ? 'Sedang' : aqi <= 80 ? 'Tidak sehat' : aqi <= 100 ? 'Sangat tidak sehat' : 'Berbahaya';
+    return { aqi: Math.round(aqi), label };
+  } catch { return null; }
+}
+
+export async function checkAir(state, send = sendPush) {
+  const subs = await loadSubscribers();
+  if (subs.length === 0) return 0;
+  const cities = new Map();
+  for (const s of subs) {
+    const key = `${s.city.name}_${s.city.lat.toFixed(2)}_${s.city.lon.toFixed(2)}`;
+    if (!cities.has(key)) cities.set(key, { city: s.city, subs: [] });
+    cities.get(key).subs.push(s);
+  }
+  const COOLDOWN_MS = 6 * 3600 * 1000;
+  const batasBuruk = Number.parseInt(String(process.env.PUSH_AIR_BAD || '').trim(), 10) || 60;
+  let sent = 0;
+  state.lastAir = state.lastAir || {};
+  for (const [key, group] of cities) {
+    const prev = state.lastAir[key];
+    if (prev && Date.now() - prev.ts < COOLDOWN_MS) continue;
+    const air = await fetchCityAqi(group.city.lat, group.city.lon);
+    if (!air) continue;
+    const burukSekarang = air.aqi >= batasBuruk;
+    const segarSekarang = air.label === 'Baik';
+    const catBaru = burukSekarang ? 'buruk' : segarSekarang ? 'segar' : 'sedang';
+    if (prev && prev.cat === catBaru) continue; // hanya saat kategori berubah
+    let payload = null;
+    if (burukSekarang) {
+      payload = {
+        title: `😷 Udara Tidak Sehat di ${group.city.name}`,
+        body: `Indeks kualitas udara AQI ${air.aqi} (${air.label}). Batasi aktivitas di luar ruangan dan gunakan masker bila perlu.`,
+        tag: `udara-buruk-${key}`
+      };
+    } else if (segarSekarang) {
+      payload = {
+        title: `🍃 Udara Segar di ${group.city.name}`,
+        body: `Indeks kualitas udara AQI ${air.aqi} (${air.label}). Waktu yang tepat untuk aktivitas dan olahraga di luar ruangan.`,
+        tag: `udara-segar-${key}`
+      };
+    }
+    if (payload) {
+      for (const sub of group.subs) {
+        const ok = await send(sub, {
+          ...payload,
+          url: '/',
+          vibrate: [300, 100, 300],
+          requireInteraction: false
+        }, 10800);
+        if (ok) sent++;
+      }
+    }
+    state.lastAir[key] = { cat: catBaru, ts: Date.now() };
+  }
+  return sent;
+}
+
+// --- Pemeriksa 5: Karhutla dekat kota (NASA FIRMS) ---
 async function fetchFirmsHotspots() {
   const key = process.env.FIRMS_MAP_KEY;
   if (!key) return [];
@@ -614,15 +738,59 @@ function statusConfig() {
   };
 }
 
+// kirim satu topik spesifik sebagai notifikasi tersendiri
+async function kirimTopik(topik) {
+  const subs = await loadSubscribers();
+  if (subs.length === 0) return 0;
+  let sent = 0;
+  const stamp = new Date().toISOString().slice(0, 13); // per jam: notif beda terlihat "baru"
+  for (const sub of subs) {
+    let payload = null;
+    if (topik === 'cuaca') {
+      const w = await fetchCityWeather(sub.city);
+      if (w) payload = {
+        title: `🌦️ Cuaca Saat Ini — ${sub.city.name}`,
+        body: `${w.desc}. Suhu ${w.temp}.`,
+        tag: `cuaca-${stamp}`
+      };
+    } else if (topik === 'udara') {
+      const a = await fetchCityAqi(sub.city.lat, sub.city.lon);
+      if (a) payload = {
+        title: `🍃 Kualitas Udara — ${sub.city.name}`,
+        body: `AQI ${a.aqi} (${a.label}).`,
+        tag: `udara-${stamp}`
+      };
+    } else if (topik === 'gempa') {
+      try {
+        const q = (await fetchFeltQuakes())[0];
+        if (q) payload = {
+          title: `🌎 Gempa Terakhir Terdeteksi`,
+          body: `M${q.magnitude.toFixed(1)} — ${q.wilayah} (${q.tanggal}). ${q.potensi || ''}`.trim(),
+          tag: `gempa-status-${stamp}`
+        };
+      } catch { payload = null; }
+    }
+    if (payload) {
+      const ok = await sendPush(sub, {
+        ...payload, url: '/', vibrate: [200, 100, 200], requireInteraction: false
+      }, 10800);
+      if (ok) sent++;
+    }
+  }
+  return sent;
+}
+
 function jadwalkanStatusAcak() {
-  // laporan status berkala di waktu acak — bukan jam tetap
+  // laporan status satu-topik, di waktu acak — bukan jam tetap, bukan gabungan
   const cfg = statusConfig();
   const acak = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
+  const TOPIK = ['cuaca', 'udara', 'gempa'];
   const tick = async () => {
-    await sendDailyDigest().catch(() => {});
+    const topik = TOPIK[Math.floor(Math.random() * TOPIK.length)];
+    await kirimTopik(topik).catch(() => {});
     const menit = acak(cfg.min, cfg.max);
     dailyTimer = setTimeout(tick, menit * 60 * 1000);
-    console.log(`[push] Status berkala berikutnya dalam ${menit} menit`);
+    console.log(`[push] Notifikasi topik "${topik}" terkirim; berikutnya dalam ${menit} menit`);
   };
   dailyTimer = setTimeout(tick, cfg.first * 60 * 1000);
   console.log(`[push] Mode status acak aktif: laporan pertama dalam ${cfg.first} menit, lalu acak ${cfg.min}-${cfg.max} menit`);
@@ -691,9 +859,11 @@ export function startPushWatcher() {
       const n1 = await checkEarthquakes(state);
       const n2 = await checkHeavyRain(state);
       const n3 = await checkWildfires(state);
+      const n4 = await checkRainIncoming(state);
+      const n5 = await checkAir(state);
       jadwalkanLaporanHarian(state);
-      if (n1 + n2 + n3 > 0) {
-        console.log(`[push] Terkirim: ${n1} gempa, ${n2} hujan, ${n3} karhutla`);
+      if (n1 + n2 + n3 + n4 + n5 > 0) {
+        console.log(`[push] Terkirim: ${n1} gempa, ${n2} hujan lebat, ${n3} karhutla, ${n4} bakal-hujan, ${n5} udara`);
       }
     } catch (err) {
       console.error('[push] Kesalahan pemantauan:', err.message);
