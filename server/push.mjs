@@ -28,7 +28,11 @@ function vapidPublicKey() { return process.env.VAPID_PUBLIC_KEY || ''; }
 function vapidPrivateKey() { return process.env.VAPID_PRIVATE_KEY || ''; }
 function vapidSubject() { return process.env.VAPID_SUBJECT || 'mailto:admin@geosiaga.id'; }
 
-const CHECK_INTERVAL_MIN = Number(process.env.PUSH_CHECK_INTERVAL_MIN) || 5;
+const RAW_CHECK_MIN = String(process.env.PUSH_CHECK_INTERVAL_MIN || '').trim();
+const CHECK_INTERVAL_MIN = Number.parseInt(RAW_CHECK_MIN, 10) || 5;
+if (RAW_CHECK_MIN && String(CHECK_INTERVAL_MIN) !== RAW_CHECK_MIN) {
+  console.log(`[push] PUSH_CHECK_INTERVAL_MIN="${RAW_CHECK_MIN}" tidak valid -> pakai ${CHECK_INTERVAL_MIN} menit`);
+}
 
 // --- Penyimpanan file ---
 async function readJson(file, fallback) {
@@ -189,7 +193,15 @@ async function sendPush(sub, payload, ttlSeconds = 3600) {
     } else if (err.statusCode === 429) {
       console.log('[push] Rate limit dari push service, coba lagi nanti');
     } else {
-      console.error('[push] Gagal kirim:', err.message);
+      // 400/403 biasanya langganan sudah tidak valid (browser ganti kunci / uninstall)
+      let host = '?';
+      try { host = new URL(sub.endpoint).host; } catch {}
+      console.error(`[push] Gagal kirim (HTTP ${err.statusCode ?? '?'} ke ${host}): ${err.message}`);
+      if (err.statusCode === 400 || err.statusCode === 403) {
+        const subs = (await loadSubscribers()).filter((x) => x.endpoint !== sub.endpoint);
+        await saveSubscribers(subs);
+        console.log('[push] Langganan tidak valid dihapus. Silakan buka aplikasi dan aktifkan notifikasi lagi.');
+      }
     }
     return false;
   }
@@ -435,10 +447,13 @@ export function buildDailyDigest(sub, info) {
   if (info.quake) {
     bagian.push(`Gempa terakhir: ${info.quake}`);
   }
+  if (info.udara) {
+    bagian.push(`Kualitas udara: ${info.udara}`);
+  }
   bagian.push(info.hazard ? `⚠️ ${info.hazard}` : 'Tidak ada peringatan aktif di wilayah Anda.');
   return {
     title: `🌤️ Laporan Harian GeoSiaga — ${city.name}`,
-    body: `${bagian.join(' • ')}. Kondisi ${info.hazard ? 'WASPADA' : 'aman hari ini'}.`,
+    body: `${bagian.join(' • ').replace(/\.$/, '')}. Kondisi ${info.hazard ? 'WASPADA' : 'aman hari ini'}.`,
     tag: `harian-${new Date().toISOString().slice(0, 10)}`,
     url: '/',
     vibrate: [200, 100, 200],
@@ -470,20 +485,44 @@ function deskripsiCuaca(code) {
   return 'Cuaca relatif cerah';
 }
 
+async function labelUdara(aqi) {
+  if (aqi <= 20) return 'Baik';
+  if (aqi <= 40) return 'Cukup';
+  if (aqi <= 60) return 'Sedang';
+  if (aqi <= 80) return 'Tidak sehat';
+  if (aqi <= 100) return 'Sangat tidak sehat';
+  return 'Berbahaya';
+}
+
+export async function fetchCityAir(city) {
+  try {
+    const res = await fetch(
+      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}&current=european_aqi,pm10`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) return null;
+    const cur = (await res.json())?.current || {};
+    if (cur.european_aqi == null) return null;
+    return `AQI ${Math.round(cur.european_aqi)} (${await labelUdara(cur.european_aqi)})`;
+  } catch {
+    return null;
+  }
+}
+
 async function sendDailyDigest() {
   const subs = await loadSubscribers();
   if (subs.length === 0) return 0;
   let sent = 0;
   for (const sub of subs) {
     try {
-      const [weather] = await Promise.all([fetchCityWeather(sub.city)]);
+      const [weather, udara] = await Promise.all([fetchCityWeather(sub.city), fetchCityAir(sub.city)]);
       let quakeInfo = null;
       try {
         const quakes = await fetchFeltQuakes();
         const q = quakes && quakes[0];
         if (q) quakeInfo = `M${q.magnitude.toFixed(1)} ${q.wilayah} (${q.tanggal})`;
       } catch { quakeInfo = null; }
-      const payload = buildDailyDigest(sub, { weather, quake: quakeInfo, hazard: null });
+      const payload = buildDailyDigest(sub, { weather, quake: quakeInfo, udara, hazard: null });
       const ok = await sendPush(sub, payload, 21600);
       if (ok) sent++;
     } catch (err) {
@@ -494,8 +533,27 @@ async function sendDailyDigest() {
   return sent;
 }
 
+const STATUS_MODE = String(process.env.PUSH_STATUS_MODE || 'daily').trim().toLowerCase();
+const STATUS_FIRST_MIN = Number.parseInt(String(process.env.PUSH_FIRST_STATUS_MIN || '').trim(), 10) || 3;
+const STATUS_MIN_MIN = Number.parseInt(String(process.env.PUSH_STATUS_MIN_MIN || '').trim(), 10) || 45;
+const STATUS_MAX_MIN = Number.parseInt(String(process.env.PUSH_STATUS_MAX_MIN || '').trim(), 10) || 240;
+
+function jadwalkanStatusAcak() {
+  // laporan status berkala di waktu acak — bukan jam tetap
+  const acak = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
+  const tick = async () => {
+    await sendDailyDigest().catch(() => {});
+    const menit = acak(STATUS_MIN_MIN, STATUS_MAX_MIN);
+    dailyTimer = setTimeout(tick, menit * 60 * 1000);
+    console.log(`[push] Status berkala berikutnya dalam ${menit} menit`);
+  };
+  dailyTimer = setTimeout(tick, STATUS_FIRST_MIN * 60 * 1000);
+  console.log(`[push] Mode status acak aktif: laporan pertama dalam ${STATUS_FIRST_MIN} menit, lalu acak ${STATUS_MIN_MIN}-${STATUS_MAX_MIN} menit`);
+}
+
 function jadwalkanLaporanHarian(state) {
   if (dailyTimer) return; // jadwal harian hanya dibuat sekali
+  if (STATUS_MODE === 'random') { jadwalkanStatusAcak(); return; }
   const now = new Date();
   const lokal = new Date(now.getTime() + (DAILY_TZ_OFFSET_MIN + now.getTimezoneOffset()) * 60000);
   const target = new Date(lokal);
@@ -526,8 +584,9 @@ function jadwalkanLaporanHarian(state) {
 async function kirimUjiAlarm() {
   const subs = await loadSubscribers();
   if (subs.length === 0) { console.log('[push] Uji alarm: belum ada langganan'); return; }
+  let ok = 0;
   for (const sub of subs) {
-    await sendPush(sub, {
+    const sukses = await sendPush(sub, {
       title: '🚨 UJI ALARM DARURAT GeoSiaga',
       body: 'Ini notifikasi uji. Alarm akan berbunyi terus sampai Anda menekan Hentikan Alarm.',
       tag: 'uji-alarm',
@@ -537,8 +596,13 @@ async function kirimUjiAlarm() {
       urgent: true,
       level: 'urgent'
     }, 600);
+    if (sukses) ok++;
   }
-  console.log(`[push] Uji alarm terkirim ke ${subs.length} langganan`);
+  console.log(`[push] Uji alarm: terkirim ${ok} dari ${subs.length} langganan`);
+  if (ok < subs.length) {
+    console.log('[push] Ada langganan gagal terkirim — lihat log di atas. Biasanya perlu berlangganan ulang dari aplikasi.');
+  }
+  console.log('[push] CATATAN: PUSH_TEST_ALARM masih 1 — uji akan dikirim ulang tiap server restart. Set 0 setelah selesai menguji.');
 }
 
 // --- Loop pemantauan ---
