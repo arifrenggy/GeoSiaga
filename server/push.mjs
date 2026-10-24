@@ -28,10 +28,23 @@ function vapidPublicKey() { return process.env.VAPID_PUBLIC_KEY || ''; }
 function vapidPrivateKey() { return process.env.VAPID_PRIVATE_KEY || ''; }
 function vapidSubject() { return process.env.VAPID_SUBJECT || 'mailto:admin@geosiaga.id'; }
 
-const RAW_CHECK_MIN = String(process.env.PUSH_CHECK_INTERVAL_MIN || '').trim();
-const CHECK_INTERVAL_MIN = Number.parseInt(RAW_CHECK_MIN, 10) || 5;
-if (RAW_CHECK_MIN && String(CHECK_INTERVAL_MIN) !== RAW_CHECK_MIN) {
-  console.log(`[push] PUSH_CHECK_INTERVAL_MIN="${RAW_CHECK_MIN}" tidak valid -> pakai ${CHECK_INTERVAL_MIN} menit`);
+// Konfigurasi PUSH_* dibaca saat watcher dijalankan (setelah .env dimuat),
+// bukan saat modul diimpor — supaya nilai dari .env benar-benar terbaca.
+function intervalMenit() {
+  const raw = String(process.env.PUSH_CHECK_INTERVAL_MIN || '').trim();
+  const v = Number.parseInt(raw, 10) || 5;
+  if (raw && String(v) !== raw) {
+    console.log(`[push] PUSH_CHECK_INTERVAL_MIN="${raw}" tidak valid -> pakai ${v} menit`);
+  }
+  return v;
+}
+
+export function _configTest() {
+  return {
+    menit: intervalMenit(),
+    status: statusConfig(),
+    jamHarian: dailyHour()
+  };
 }
 
 // --- Penyimpanan file ---
@@ -463,8 +476,11 @@ export async function checkWildfires(state, send = sendPush) {
 let dailyTimer = null;
 
 // --- Laporan harian GeoSiaga (dikirim setiap hari walau tidak ada bencana) ---
-const DAILY_HOUR = Number(process.env.PUSH_DAILY_HOUR) || 7; // 07:00 WITA default
 const DAILY_TZ_OFFSET_MIN = 8 * 60; // WITA = UTC+8
+
+function dailyHour() {
+  return Number.parseInt(String(process.env.PUSH_DAILY_HOUR || '').trim(), 10) || 7; // 07:00 WITA default
+}
 
 export function buildDailyDigest(sub, info) {
   const { city } = sub;
@@ -561,34 +577,40 @@ async function sendDailyDigest() {
   return sent;
 }
 
-const STATUS_MODE = String(process.env.PUSH_STATUS_MODE || 'daily').trim().toLowerCase();
-const STATUS_FIRST_MIN = Number.parseInt(String(process.env.PUSH_FIRST_STATUS_MIN || '').trim(), 10) || 3;
-const STATUS_MIN_MIN = Number.parseInt(String(process.env.PUSH_STATUS_MIN_MIN || '').trim(), 10) || 45;
-const STATUS_MAX_MIN = Number.parseInt(String(process.env.PUSH_STATUS_MAX_MIN || '').trim(), 10) || 240;
+function statusConfig() {
+  return {
+    mode: String(process.env.PUSH_STATUS_MODE || 'daily').trim().toLowerCase(),
+    first: Number.parseInt(String(process.env.PUSH_FIRST_STATUS_MIN || '').trim(), 10) || 3,
+    min: Number.parseInt(String(process.env.PUSH_STATUS_MIN_MIN || '').trim(), 10) || 45,
+    max: Number.parseInt(String(process.env.PUSH_STATUS_MAX_MIN || '').trim(), 10) || 240,
+  };
+}
 
 function jadwalkanStatusAcak() {
   // laporan status berkala di waktu acak — bukan jam tetap
+  const cfg = statusConfig();
   const acak = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
   const tick = async () => {
     await sendDailyDigest().catch(() => {});
-    const menit = acak(STATUS_MIN_MIN, STATUS_MAX_MIN);
+    const menit = acak(cfg.min, cfg.max);
     dailyTimer = setTimeout(tick, menit * 60 * 1000);
     console.log(`[push] Status berkala berikutnya dalam ${menit} menit`);
   };
-  dailyTimer = setTimeout(tick, STATUS_FIRST_MIN * 60 * 1000);
-  console.log(`[push] Mode status acak aktif: laporan pertama dalam ${STATUS_FIRST_MIN} menit, lalu acak ${STATUS_MIN_MIN}-${STATUS_MAX_MIN} menit`);
+  dailyTimer = setTimeout(tick, cfg.first * 60 * 1000);
+  console.log(`[push] Mode status acak aktif: laporan pertama dalam ${cfg.first} menit, lalu acak ${cfg.min}-${cfg.max} menit`);
 }
 
 function jadwalkanLaporanHarian(state) {
   if (dailyTimer) return; // jadwal harian hanya dibuat sekali
-  if (STATUS_MODE === 'random') { jadwalkanStatusAcak(); return; }
+  if (statusConfig().mode === 'random') { jadwalkanStatusAcak(); return; }
   const now = new Date();
   const lokal = new Date(now.getTime() + (DAILY_TZ_OFFSET_MIN + now.getTimezoneOffset()) * 60000);
+  const jamHarian = dailyHour();
   const target = new Date(lokal);
-  target.setHours(DAILY_HOUR, 0, 0, 0);
+  target.setHours(jamHarian, 0, 0, 0);
   if (lokal >= target) target.setDate(target.getDate() + 1);
   const tglHariIni = lokal.toISOString().slice(0, 10);
-  if (state.lastDailyDigest !== tglHariIni && (DAILY_HOUR * 60 - (lokal.getHours() * 60 + lokal.getMinutes())) <= 15) {
+  if (state.lastDailyDigest !== tglHariIni && (jamHarian * 60 - (lokal.getHours() * 60 + lokal.getMinutes())) <= 15) {
     // sudah lewat jadwal hari ini & belum terkirim -> kirim sekarang
     state.lastDailyDigest = tglHariIni;
     sendDailyDigest().catch(() => {});
@@ -605,7 +627,7 @@ function jadwalkanLaporanHarian(state) {
     dailyTimer = setTimeout(tick, 24 * 3600 * 1000);
   };
   dailyTimer = setTimeout(tick, ms);
-  console.log(`[push] Laporan harian dijadwalkan pukul ${String(DAILY_HOUR).padStart(2, '0')}:00 WITA`);
+  console.log(`[push] Laporan harian dijadwalkan pukul ${String(dailyHour()).padStart(2, '0')}:00 WITA`);
 }
 
 // --- Mode uji alarm (PUSH_TEST_ALARM=1): kirim notifikasi darurat percobaan saat server mulai ---
@@ -661,8 +683,9 @@ export function startPushWatcher() {
   };
 
   run();
-  watcherTimer = setInterval(run, CHECK_INTERVAL_MIN * 60 * 1000);
-  console.log(`[push] Pemantau bencana aktif (cek tiap ${CHECK_INTERVAL_MIN} menit)`);
+  const menit = intervalMenit();
+  watcherTimer = setInterval(run, menit * 60 * 1000);
+  console.log(`[push] Pemantau bencana aktif (cek tiap ${menit} menit)`);
   if (process.env.PUSH_TEST_ALARM === '1') kirimUjiAlarm();
 }
 
