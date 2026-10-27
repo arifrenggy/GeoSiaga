@@ -1,11 +1,24 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+// Sandbox/preview only (BASE44_PREVIEW_MODE=1): the dev server runs without the
+// standalone Node server, so forward the serverless endpoints (/api/*) to the API
+// service that docker-compose.base44.yml runs next to Vite. When the flag is unset
+// the dev server behaves exactly as before.
+const isPreviewMode = process.env.BASE44_PREVIEW_MODE === '1';
+const previewProxy = {
+  '/api': {
+    target: process.env.BASE44_API_ORIGIN || 'http://api:8080',
+    changeOrigin: true
+  }
+};
+
 export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
-    port: 3000
+    port: 3000,
+    ...(isPreviewMode ? { proxy: previewProxy } : {})
   },
   build: {
     target: 'esnext',
