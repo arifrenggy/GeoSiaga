@@ -929,21 +929,48 @@ export async function checkDataChanges(state, send = sendPush) {
   if (subs.length === 0) return 0;
 
   const cooldownMs = (Number.parseInt(String(process.env.PUSH_PERUBAHAN_COOLDOWN_MIN || '').trim(), 10) || 5) * 60000;
-  const capHarian = Number.parseInt(String(process.env.PUSH_PERUBAHAN_CAP_HARIAN || '').trim(), 10) || 24;
+  const capHarian = Number.parseInt(String(process.env.PUSH_PERUBAHAN_CAP_HARIAN || '').trim(), 10) || 40;
   const hariIni = new Date().toISOString().slice(0, 10);
   if (!state.perubahanHarian || state.perubahanHarian.tanggal !== hariIni) {
-    state.perubahanHarian = { tanggal: hariIni, jumlah: 0 };
+    state.perubahanHarian = { tanggal: hariIni, perangkat: {} };
   }
+  state.perubahanHarian.perangkat = state.perubahanHarian.perangkat || {};
   state.perubahan = state.perubahan || { terakhir: {}, snapshot: {}, gunung: null, titikPanas: null };
   state.perubahan.terakhir = state.perubahan.terakhir || {};
   state.perubahan.snapshot = state.perubahan.snapshot || {};
 
   let sent = 0;
+
+  // Setiap jenis perubahan dikirim sebagai notifikasi tersendiri.
   const kirim = async (sub, payload, kunci) => {
-    if (state.perubahanHarian.jumlah >= capHarian) return false;
+    const idPerangkat = String(sub.endpoint).slice(-24);
+    const jumlah = state.perubahanHarian.perangkat[idPerangkat] || 0;
+    if (jumlah >= capHarian) return false;
     const ok = await send(sub, payload, 3600);
-    if (ok) { state.perubahanHarian.jumlah++; state.perubahan.terakhir[kunci] = Date.now(); }
+    if (ok) {
+      state.perubahanHarian.perangkat[idPerangkat] = jumlah + 1;
+      state.perubahan.terakhir[kunci] = Date.now();
+    }
     return ok;
+  };
+
+  const sebar = async (daftar, penerima, kunciDasar) => {
+    for (const item of daftar) {
+      const kunci = `${kunciDasar}|${item.jenis}`;
+      if (Date.now() - (state.perubahan.terakhir[kunci] || 0) < cooldownMs) continue;
+      for (const sub of penerima) {
+        const ok = await kirim(sub, {
+          title: item.judul,
+          body: item.isi,
+          tag: `perubahan-${item.jenis}-${kunciDasar}`,
+          url: '/',
+          vibrate: [200, 100, 200],
+          requireInteraction: false,
+          level: 'info'
+        }, kunci);
+        if (ok) sent++;
+      }
+    }
   };
 
   // --- A. Perubahan per kota: cuaca & kualitas udara ---
@@ -959,20 +986,32 @@ export async function checkDataChanges(state, send = sendPush) {
     const cuaca = await fetchCuacaTerkini(group.city.lat, group.city.lon);
     const udara = await fetchCityAqi(group.city.lat, group.city.lon);
     const lama = state.perubahan.snapshot[key];
-    const perubahan = [];
+    const daftar = [];
+    const namaKota = group.city.name;
 
     if (lama && cuaca) {
       if (lama.suhu != null && Math.abs(cuaca.suhu - lama.suhu) >= 1) {
-        perubahan.push(`Suhu ${lama.suhu}°C menjadi ${cuaca.suhu}°C`);
+        daftar.push({
+          jenis: 'suhu',
+          judul: `🌡️ Suhu ${namaKota} ${cuaca.suhu > lama.suhu ? 'Naik' : 'Turun'}`,
+          isi: `Dari ${lama.suhu}°C menjadi ${cuaca.suhu}°C.`
+        });
       }
       if (lama.kode != null && cuaca.kode !== lama.kode) {
-        perubahan.push(`Cuaca ${lama.kondisi} menjadi ${cuaca.kondisi}`);
+        daftar.push({
+          jenis: 'cuaca',
+          judul: `🌤️ Cuaca ${namaKota} Berubah`,
+          isi: `${lama.kondisi} menjadi ${cuaca.kondisi}.`
+        });
       }
     }
     const labelBuruk = ['Tidak sehat', 'Sangat tidak sehat', 'Berbahaya'];
     if (lama && udara && lama.aqiLabel && udara.label !== lama.aqiLabel && !labelBuruk.includes(udara.label)) {
-      // perubahan ke kondisi buruk sudah dikirim oleh pemeriksa kualitas udara
-      perubahan.push(`Kualitas udara ${lama.aqiLabel} menjadi ${udara.label} (AQI ${udara.aqi})`);
+      daftar.push({
+        jenis: 'udara',
+        judul: `🌫️ Kualitas Udara ${namaKota} Berubah`,
+        isi: `${lama.aqiLabel} menjadi ${udara.label} (AQI ${udara.aqi}).`
+      });
     }
 
     state.perubahan.snapshot[key] = {
@@ -984,25 +1023,10 @@ export async function checkDataChanges(state, send = sendPush) {
       ts: Date.now()
     };
 
-    if (perubahan.length === 0) continue;
-    if (Date.now() - (state.perubahan.terakhir[key] || 0) < cooldownMs) continue;
-
-    for (const sub of group.subs) {
-      const ok = await kirim(sub, {
-        title: `📊 Data ${group.city.name} Diperbarui`,
-        body: perubahan.join(' • '),
-        tag: `perubahan-${key}`,
-        url: '/',
-        vibrate: [200, 100, 200],
-        requireInteraction: false,
-        level: 'info'
-      }, key);
-      if (ok) sent++;
-    }
+    if (daftar.length) await sebar(daftar, group.subs, key);
   }
 
   // --- B. Perubahan nasional: tingkat gunung api & jumlah titik panas ---
-  const nasional = [];
   const statusGunung = await ambilStatusGunung();
   if (statusGunung) {
     const lamaG = state.perubahan.gunung;
@@ -1012,11 +1036,25 @@ export async function checkDataChanges(state, send = sendPush) {
       for (const [nama, level] of Object.entries(statusGunung)) {
         const l = lamaG[nama];
         if (l == null || Number(l) === Number(level)) continue;
-        const teks = `${nama} ${NAMA_LEVEL_GUNUNG[l] || l} menjadi ${NAMA_LEVEL_GUNUNG[level] || level}`;
+        const teks = `${nama}: ${NAMA_LEVEL_GUNUNG[l] || l} menjadi ${NAMA_LEVEL_GUNUNG[level] || level}`;
         (Number(level) > Number(l) ? naik : turun).push(teks);
       }
-      if (naik.length) nasional.push(`Gunung api naik tingkat: ${naik.slice(0, 3).join('; ')}${naik.length > 3 ? ` (+${naik.length - 3} lain)` : ''}`);
-      if (turun.length) nasional.push(`Gunung api turun tingkat: ${turun.slice(0, 3).join('; ')}${turun.length > 3 ? ` (+${turun.length - 3} lain)` : ''}`);
+      const daftarGunung = [];
+      if (naik.length) {
+        daftarGunung.push({
+          jenis: 'gunung-naik',
+          judul: `🌋 Status Gunung Api Naik (${naik.length})`,
+          isi: `${naik.slice(0, 4).join(' • ')}${naik.length > 4 ? ` • +${naik.length - 4} lainnya` : ''}`
+        });
+      }
+      if (turun.length) {
+        daftarGunung.push({
+          jenis: 'gunung-turun',
+          judul: `🌋 Status Gunung Api Turun (${turun.length})`,
+          isi: `${turun.slice(0, 4).join(' • ')}${turun.length > 4 ? ` • +${turun.length - 4} lainnya` : ''}`
+        });
+      }
+      if (daftarGunung.length) await sebar(daftarGunung, subs, 'nasional');
     }
     state.perubahan.gunung = statusGunung;
   }
@@ -1024,28 +1062,15 @@ export async function checkDataChanges(state, send = sendPush) {
   const jumlahPanas = await ambilJumlahTitikPanas();
   if (jumlahPanas != null) {
     const lamaP = state.perubahan.titikPanas;
-    if (lamaP != null && lamaP !== jumlahPanas) {
+    if (lamaP != null && Math.abs(jumlahPanas - lamaP) >= 50) {
       const selisih = jumlahPanas - lamaP;
-      if (Math.abs(selisih) >= 50) {
-        nasional.push(`Titik panas ${selisih > 0 ? 'bertambah' : 'berkurang'} ${Math.abs(selisih)} (kini ${jumlahPanas})`);
-      }
+      await sebar([{
+        jenis: 'titik-panas',
+        judul: `🔥 Titik Panas ${selisih > 0 ? 'Bertambah' : 'Berkurang'} ${Math.abs(selisih)}`,
+        isi: `Kini ${jumlahPanas} titik panas terpantau satelit di Indonesia.`
+      }], subs, 'nasional');
     }
     state.perubahan.titikPanas = jumlahPanas;
-  }
-
-  if (nasional.length > 0 && Date.now() - (state.perubahan.terakhir.nasional || 0) >= cooldownMs) {
-    for (const sub of subs) {
-      const ok = await kirim(sub, {
-        title: '📊 Perubahan Data Nasional GeoSiaga',
-        body: nasional.join(' • '),
-        tag: 'perubahan-nasional',
-        url: '/',
-        vibrate: [200, 100, 200],
-        requireInteraction: false,
-        level: 'info'
-      }, 'nasional');
-      if (ok) sent++;
-    }
   }
 
   return sent;
