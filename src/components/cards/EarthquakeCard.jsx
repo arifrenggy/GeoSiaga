@@ -123,8 +123,8 @@ export function EarthquakeCard({ earthquake, recentQuakes = [], onFocusQuake, lo
 
       {/* Collapsible History */}
       {showList && (
-        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: 'var(--border-thick)', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-          {recentQuakes.slice(0, 5).map((q, idx) => {
+        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: 'var(--border-thick)', display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '18rem', overflowY: 'auto' }}>
+          {recentQuakes.map((q, idx) => {
             const color = getEarthquakeColor(q.magnitude);
             return (
               <div
@@ -147,6 +147,7 @@ export function EarthquakeCard({ earthquake, recentQuakes = [], onFocusQuake, lo
                 <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>
                   <span style={{ fontWeight: '800', color: color, marginRight: '6px' }}>M {q.magnitude}</span>
                   <span style={{ color: 'var(--text-main)', fontWeight: '600' }}>{q.wilayah}</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.62rem', marginLeft: '6px', fontWeight: '600' }}>{q.sumber || 'BMKG'}</span>
                 </div>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', whiteSpace: 'nowrap', fontWeight: '500' }}>{q.time}</span>
               </div>

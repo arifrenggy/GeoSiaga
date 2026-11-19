@@ -20,7 +20,7 @@ import { registerDisasterPush } from './utils/push';
 import { playDisasterAlarm, mulaiAlarm, hentikanAlarm, aktifkanAlarmSetelahInteraksi } from './utils/alarm';
 import { fetchWeatherData } from './services/weather';
 import { fetchAirQualityData } from './services/airQuality';
-import { fetchLatestEarthquake, fetchRecentEarthquakes } from './services/bmkg';
+import { fetchLatestEarthquake, fetchAllEarthquakes } from './services/bmkg';
 import { i18n } from './utils/i18n';
 import { Download, AlertTriangle, X, Loader2, WifiOff } from 'lucide-react';
 
@@ -281,7 +281,7 @@ export function App() {
     try {
       const [quake, quakeList] = await Promise.all([
         fetchLatestEarthquake(force),
-        fetchRecentEarthquakes(force)
+        fetchAllEarthquakes(force)
       ]);
       if (quake) {
         const isNew = lastQuakeIdRef.current !== null && lastQuakeIdRef.current !== quake.dateTime;
