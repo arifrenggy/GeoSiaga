@@ -110,6 +110,15 @@ async function serveStatic(pathname, req, res) {
   try {
     let data = await readFile(filePath);
     const ext = extname(filePath).toLowerCase();
+
+    // Domain ikut otomatis: token __SITE_URL__ diganti domain yang dipakai pengunjung,
+    // supaya pratinjau tautan (og:url, og:image) selalu menunjuk alamat yang benar.
+    if (ext === '.html') {
+      const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
+      const host = String(req.headers['x-forwarded-host'] || req.headers.host || 'localhost').split(',')[0].trim();
+      const origin = `${proto}://${host}`;
+      data = Buffer.from(data.toString('utf8').split('__SITE_URL__').join(origin), 'utf8');
+    }
     const type = MIME[ext] || 'application/octet-stream';
     const headers = { ...SECURITY_HEADERS, 'Content-Type': type, 'Cache-Control': 'no-cache' };
 
