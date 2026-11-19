@@ -14,6 +14,7 @@
 
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
+import { gzipSync } from 'node:zlib';
 import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -65,6 +66,15 @@ const API_ROUTES = {
   // '/api/og' hanya tersedia di Vercel (butuh @vercel/og)
 };
 
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'SAMEORIGIN',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'geolocation=(self), camera=(), microphone=()'
+};
+
+const COMPRESSIBLE = new Set(['.html', '.js', '.mjs', '.css', '.json', '.svg', '.webmanifest', '.txt', '.xml', '.map']);
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -84,7 +94,7 @@ const MIME = {
   '.map': 'application/json'
 };
 
-async function serveStatic(pathname, res) {
+async function serveStatic(pathname, req, res) {
   // Lindungi dari path traversal
   const safePath = normalize(pathname).replace(/^(\.\.[/\\])+/, '');
   let filePath = join(DIST_DIR, safePath);
@@ -98,9 +108,19 @@ async function serveStatic(pathname, res) {
   }
 
   try {
-    const data = await readFile(filePath);
-    const type = MIME[extname(filePath).toLowerCase()] || 'application/octet-stream';
-    res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-cache' });
+    let data = await readFile(filePath);
+    const ext = extname(filePath).toLowerCase();
+    const type = MIME[ext] || 'application/octet-stream';
+    const headers = { ...SECURITY_HEADERS, 'Content-Type': type, 'Cache-Control': 'no-cache' };
+
+    const terimaGzip = String(req.headers['accept-encoding'] || '').includes('gzip');
+    if (terimaGzip && COMPRESSIBLE.has(ext) && data.length > 1024) {
+      data = gzipSync(data, { level: 6 });
+      headers['Content-Encoding'] = 'gzip';
+      headers['Vary'] = 'Accept-Encoding';
+    }
+
+    res.writeHead(200, headers);
     res.end(data);
     return true;
   } catch {
@@ -128,7 +148,7 @@ async function handleApi(handler, req, res) {
 
   const response = await handler(request);
   const body = Buffer.from(await response.arrayBuffer());
-  const headers = {};
+  const headers = { ...SECURITY_HEADERS };
   response.headers.forEach((value, key) => { headers[key] = value; });
   res.writeHead(response.status, headers);
   res.end(body);
@@ -147,21 +167,21 @@ const server = http.createServer(async (req, res) => {
 
     // 2. API lain (og.jsx) tidak tersedia di server mandiri
     if (pathname.startsWith('/api/')) {
-      res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.writeHead(404, { ...SECURITY_HEADERS, 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ error: `Endpoint ${pathname} tidak tersedia di server mandiri (khusus Vercel).` }));
       return;
     }
 
     // 3. File statis & fallback SPA
-    const served = await serveStatic(pathname, res);
+    const served = await serveStatic(pathname, req, res);
     if (!served) {
-      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.writeHead(404, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8' });
       res.end('404: halaman tidak ditemukan. Jalankan `npm run build` dulu bila folder dist/ kosong.');
     }
   } catch (err) {
     console.error('[server] Error:', err.message);
     if (!res.headersSent) {
-      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.writeHead(500, { ...SECURITY_HEADERS, 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ error: err.message }));
     }
   }

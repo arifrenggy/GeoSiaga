@@ -14,6 +14,50 @@ export const config = {
 
 const MAGMA_URL = 'https://magma.esdm.go.id/v1/gunung-api/tingkat-aktivitas';
 
+// Simpan status terakhir ke disk agar peta tidak kosong saat MAGMA sedang mati.
+// Hanya aktif di server mandiri (Node); di edge/Vercel fungsi ini tidak dijalankan.
+const CACHE_FILE = 'data/volcanoes-cache.json';
+
+async function simpanCache(data) {
+  try {
+    if (!globalThis.process?.versions?.node) return;
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const dir = path.dirname(CACHE_FILE);
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(CACHE_FILE, JSON.stringify(data), 'utf8');
+  } catch { /* cache bersifat pelengkap, kegagalan tidak menghentikan respons */ }
+}
+
+async function bacaCache() {
+  try {
+    if (!globalThis.process?.versions?.node) return null;
+    const fs = await import('node:fs/promises');
+    const isi = await fs.readFile(CACHE_FILE, 'utf8');
+    return JSON.parse(isi);
+  } catch { return null; }
+}
+
+async function gagal(error, status) {
+  const cache = await bacaCache();
+  if (cache?.statuses && Object.keys(cache.statuses).length > 0) {
+    return json(
+      {
+        available: true,
+        stale: true,
+        source: 'PVMBG / MAGMA Indonesia (ESDM)',
+        sourceUrl: MAGMA_URL,
+        fetchedAt: cache.fetchedAt,
+        catatan: 'Sumber resmi sedang tidak dapat dihubungi, menampilkan data terakhir yang tersimpan.',
+        statuses: cache.statuses
+      },
+      200,
+      'public, max-age=300'
+    );
+  }
+  return json({ available: false, error }, status);
+}
+
 export default async function handler(request) {
   try {
     const res = await fetch(MAGMA_URL, {
@@ -24,15 +68,17 @@ export default async function handler(request) {
     });
 
     if (!res.ok) {
-      return json({ available: false, error: `MAGMA ESDM merespons status ${res.status}` }, 502);
+      return gagal(`MAGMA ESDM merespons status ${res.status}`, 502);
     }
 
     const html = await res.text();
     const statuses = parseMagmaStatusTable(html);
 
     if (!statuses || Object.keys(statuses).length === 0) {
-      return json({ available: false, error: 'Format halaman MAGMA berubah / tabel status tidak ditemukan' }, 502);
+      return gagal('Format halaman MAGMA berubah / tabel status tidak ditemukan', 502);
     }
+
+    await simpanCache({ fetchedAt: new Date().toISOString(), statuses });
 
     return json(
       {
@@ -46,7 +92,7 @@ export default async function handler(request) {
       'public, max-age=3600' // cache edge 1 jam, status gunung api jarang berubah
     );
   } catch (err) {
-    return json({ available: false, error: `Gagal menghubungi MAGMA ESDM: ${err.message}` }, 503);
+    return gagal(`Gagal menghubungi MAGMA ESDM: ${err.message}`, 503);
   }
 }
 
