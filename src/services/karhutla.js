@@ -42,8 +42,8 @@ export async function fetchKarhutlaData(lat, lon, weatherData, forceRefresh = fa
           hotspots = data.hotspots.map(([lat, lon, acqDate, acqTime, satIdx, conf, frpMw, brightnessK]) => ({
             lat, lon, acqDate, acqTime,
             satellite: sats[satIdx] || 'VIIRS SNPP',
-            confidenceRaw: conf === 2 ? 'h' : 'n',
-            confidence: conf === 2 ? 'Tinggi' : 'Sedang',
+            confidenceRaw: conf === 2 ? 'h' : conf === 1 ? 'n' : 'l',
+            confidence: conf === 2 ? 'Tinggi' : conf === 1 ? 'Sedang' : 'Rendah',
             frpMw, brightnessK
           }));
         }

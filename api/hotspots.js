@@ -12,7 +12,7 @@ export const config = {
  * status 503 + alasan secara JUJUR (tidak ada data palsu).
  */
 
-export default async function handler(request) {
+async function inti(request) {
   const MAP_KEY = process.env.FIRMS_MAP_KEY;
 
   if (!MAP_KEY) {
@@ -96,7 +96,7 @@ export default async function handler(request) {
         hotspots: compact.rows
       },
       200,
-      'public, max-age=900'
+      'public, max-age=60, stale-while-revalidate=120'
     );
   } catch (err) {
     return json({ available: false, error: `Gagal menghubungi NASA FIRMS: ${err.message}` }, 503);
@@ -178,7 +178,7 @@ function compactRows(all) {
     h.acqDate,
     h.acqTime,
     satIndex(h.satellite),
-    h.confidenceRaw === 'h' ? 2 : 1,
+    h.confidenceRaw === 'h' ? 2 : h.confidenceRaw === 'n' ? 1 : 0,
     h.frpMw,
     h.brightnessK
   ]);
@@ -195,4 +195,65 @@ function json(body, status = 200, cacheControl = 'no-store') {
       'Cache-Control': cacheControl
     }
   });
+}
+
+// ---------------------------------------------------------------
+// Cache 60 detik + single-flight: berapa pun pengunjungnya, NASA
+// hanya dipanggil sekali per menit sehingga kuota tidak jebol.
+// Hasil terakhir juga disimpan ke volume sebagai cadangan.
+// ---------------------------------------------------------------
+const CACHE_MS = 60 * 1000;
+const CACHE_HEADER = 'public, max-age=60, stale-while-revalidate=120';
+const BERKAS_CACHE = 'data/hotspots-cache.json';
+const mem = { payload: null, at: 0, promise: null };
+
+async function simpanDisk(payload) {
+  try {
+    if (!globalThis.process?.versions?.node) return;
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    await fs.mkdir(path.dirname(BERKAS_CACHE), { recursive: true });
+    await fs.writeFile(BERKAS_CACHE, JSON.stringify(payload), 'utf8');
+  } catch { /* cadangan bersifat pelengkap */ }
+}
+
+async function bacaDisk() {
+  try {
+    if (!globalThis.process?.versions?.node) return null;
+    const fs = await import('node:fs/promises');
+    return JSON.parse(await fs.readFile(BERKAS_CACHE, 'utf8'));
+  } catch { return null; }
+}
+
+export default async function handler(request) {
+  if (mem.payload && Date.now() - mem.at < CACHE_MS) {
+    return json(mem.payload, 200, CACHE_HEADER);
+  }
+
+  if (!mem.promise) {
+    mem.promise = (async () => {
+      const res = await inti(request);
+      return { status: res.status, body: await res.json() };
+    })().finally(() => { mem.promise = null; });
+  }
+
+  const { status, body } = await mem.promise;
+
+  if (status === 200) {
+    mem.payload = body;
+    mem.at = Date.now();
+    await simpanDisk(body);
+    return json(body, 200, CACHE_HEADER);
+  }
+
+  // Sumber gagal: sajikan hasil terakhir yang tersimpan, tandai sebagai data lama
+  const cadangan = await bacaDisk();
+  if (cadangan) {
+    return json(
+      { ...cadangan, stale: true, catatan: 'Sumber sedang tidak dapat dihubungi, menampilkan data terakhir yang tersimpan.' },
+      200,
+      'public, max-age=60'
+    );
+  }
+  return json(body, status, 'no-store');
 }

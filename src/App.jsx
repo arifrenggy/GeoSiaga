@@ -372,6 +372,25 @@ export function App() {
     }
   };
 
+  // Penyegaran otomatis tiap 1 menit, plus saat tab dibuka kembali atau koneksi pulih
+  useEffect(() => {
+    const segarkan = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      loadData(true);
+      loadEarthquakeData();
+      refreshVolcanoStatuses().then(() => setVolcanoStatusTick((n) => n + 1));
+    };
+    const jam = setInterval(segarkan, 60 * 1000);
+    const saatTerlihat = () => { if (typeof document !== 'undefined' && !document.hidden) segarkan(); };
+    document.addEventListener('visibilitychange', saatTerlihat);
+    window.addEventListener('online', segarkan);
+    return () => {
+      clearInterval(jam);
+      document.removeEventListener('visibilitychange', saatTerlihat);
+      window.removeEventListener('online', segarkan);
+    };
+  }, [location?.lat, location?.lon]);
+
   useEffect(() => {
     loadData();
   }, [location?.lat, location?.lon]);

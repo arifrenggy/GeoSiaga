@@ -70,13 +70,13 @@ async function gagal(error, status) {
         statuses: cache.statuses
       },
       200,
-      'public, max-age=300'
+      'public, max-age=60'
     );
   }
   return json({ available: false, error }, status);
 }
 
-export default async function handler(request) {
+async function inti(request) {
   try {
     let html = null;
     let jalur = 'langsung';
@@ -117,7 +117,7 @@ export default async function handler(request) {
         statuses // { "Nama Gunung": 1..4 }
       },
       200,
-      'public, max-age=3600' // cache edge 1 jam, status gunung api jarang berubah
+      'public, max-age=60, stale-while-revalidate=120'
     );
   } catch (err) {
     return gagal(`Gagal menghubungi MAGMA ESDM: ${err.message}`, 503);
@@ -168,4 +168,31 @@ function json(body, status = 200, cacheControl = 'no-store') {
       'Cache-Control': cacheControl
     }
   });
+}
+
+// ---------------------------------------------------------------
+// Cache 60 detik agar jalur cadangan tidak dipanggil terus-menerus
+// ---------------------------------------------------------------
+const CACHE_MS_VOLCANO = 60 * 1000;
+const CACHE_HEADER_VOLCANO = 'public, max-age=60, stale-while-revalidate=120';
+const memVulkan = { payload: null, at: 0, promise: null };
+
+export default async function handler(request) {
+  if (memVulkan.payload && Date.now() - memVulkan.at < CACHE_MS_VOLCANO) {
+    return json(memVulkan.payload, 200, CACHE_HEADER_VOLCANO);
+  }
+
+  if (!memVulkan.promise) {
+    memVulkan.promise = (async () => {
+      const res = await inti(request);
+      return { status: res.status, body: await res.json() };
+    })().finally(() => { memVulkan.promise = null; });
+  }
+
+  const { status, body } = await memVulkan.promise;
+  if (status === 200) {
+    memVulkan.payload = body;
+    memVulkan.at = Date.now();
+  }
+  return json(body, status, status === 200 ? CACHE_HEADER_VOLCANO : 'no-store');
 }

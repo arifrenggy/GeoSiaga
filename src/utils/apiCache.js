@@ -4,7 +4,7 @@
  */
 
 const memoryCache = new Map();
-const DEFAULT_TTL_MS = 15 * 60 * 1000; // 15 minutes TTL
+const DEFAULT_TTL_MS = 60 * 1000; // 1 menit, agar data ikut segar tiap penyegaran otomatis
 
 export const apiCache = {
   get(key) {
