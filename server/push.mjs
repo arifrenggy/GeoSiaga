@@ -186,10 +186,24 @@ export async function pushStatusHandler() {
   // Tidak memuat endpoint atau kunci perangkat siapa pun.
   const subs = await loadSubscribers();
   const state = await loadState();
+  // Daftar gempa yang sedang tampil di aplikasi = umpan BMKG (maksimal 15 entri terbaru).
+  let gempaDiUmpan = null;
+  let gempaTerbaru = null;
+  try {
+    const res = await fetch('https://data.bmkg.go.id/DataMKG/TEWS/gempaterkini.json', { signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const daftar = (await res.json())?.Infogempa?.gempa || [];
+      gempaDiUmpan = daftar.length;
+      const g = daftar[0];
+      if (g) gempaTerbaru = `${g.Tanggal} ${g.Jam} M${g.Magnitude} ${g.Wilayah}`;
+    }
+  } catch { /* biarkan null bila BMKG tidak terjangkau */ }
   return new Response(JSON.stringify({
     langganan: subs.length,
     kota: [...new Set(subs.map((s) => s.city?.name).filter(Boolean))].length,
-    gempaTercatat: (state.sentQuakes || []).length,
+    gempaDiUmpanBmkg: gempaDiUmpan,
+    gempaTerbaru,
+    gempaPernahDikirim: (state.sentQuakes || []).length,
     diperbarui: new Date().toISOString(),
     vapid: Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY),
     intervalMenit: intervalMenit()
