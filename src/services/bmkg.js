@@ -176,28 +176,122 @@ export async function fetchUsgsEarthquakes(forceRefresh = false) {
 }
 
 export async function fetchAllEarthquakes(forceRefresh = false) {
-  const [bmkg, usgs] = await Promise.all([
+  const [terkini, dirasakan, usgs, emsc] = await Promise.all([
     fetchRecentEarthquakes(forceRefresh).catch(() => []),
-    fetchUsgsEarthquakes(forceRefresh).catch(() => [])
+    fetchFeltEarthquakes(forceRefresh).catch(() => []),
+    fetchUsgsEarthquakes(forceRefresh).catch(() => []),
+    fetchEmscEarthquakes(forceRefresh).catch(() => [])
   ]);
 
-  const gabungan = bmkg.map((q) => ({
-    ...q,
-    epoch: waktuBmkgKeEpoch(q.date, q.time),
-    sumber: 'BMKG'
-  }));
+  const gabungan = [];
 
-  // Buang gempa USGS yang sebenarnya sama dengan catatan BMKG (waktu & magnitudo mirip)
-  for (const u of usgs) {
-    const kembar = gabungan.some((b) => {
-      if (!b.epoch || !u.epoch) return false;
-      const selisihMenit = Math.abs(b.epoch - u.epoch) / 60000;
-      const selisihMag = Math.abs(b.magnitude - u.magnitude);
-      return selisihMenit <= 10 && selisihMag <= 0.4 && jarakKm(b.lat, b.lon, u.lat, u.lon) <= 100;
-    });
-    if (!kembar) gabungan.push(u);
-  }
+  // Masukkan berurutan sesuai prioritas; yang sudah terwakili tidak dimasukkan lagi.
+  const masukkan = (daftar) => {
+    for (const q of daftar) {
+      const epoch = q.epoch ?? waktuBmkgKeEpoch(q.date, q.time);
+      if (!epoch) continue;
+      const kembar = gabungan.some((b) => {
+        const selisihMenit = Math.abs(b.epoch - epoch) / 60000;
+        const selisihMag = Math.abs(b.magnitude - q.magnitude);
+        return selisihMenit <= 10 && selisihMag <= 0.5 && jarakKm(b.lat, b.lon, q.lat, q.lon) <= 120;
+      });
+      if (!kembar) gabungan.push({ ...q, epoch });
+    }
+  };
+
+  masukkan(terkini.map((q) => ({ ...q, sumber: 'BMKG' })));
+  masukkan(dirasakan);
+  masukkan(emsc);
+  masukkan(usgs);
 
   gabungan.sort((a, b) => (b.epoch || 0) - (a.epoch || 0));
   return gabungan;
+}
+
+// --- EMSC: katalog gempa kecil (M1+) yang tidak diterbitkan BMKG maupun USGS ---
+export async function fetchEmscEarthquakes(forceRefresh = false) {
+  const cacheKey = 'emsc_gempa_indonesia';
+  if (!forceRefresh) {
+    const cached = apiCache.get(cacheKey);
+    if (cached) return cached;
+  }
+
+  const mulai = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 19);
+  const url =
+    'https://www.seismicportal.eu/fdsnws/event/1/query?format=json&limit=500' +
+    `&start=${mulai}` +
+    '&minlatitude=-11.5&maxlatitude=6.5&minlongitude=94&maxlongitude=141.5' +
+    '&minmagnitude=1.0';
+
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+    if (!res.ok) throw new Error(`EMSC Error: ${res.status}`);
+    const fitur = (await res.json())?.features || [];
+    const daftar = fitur.map((f) => {
+      const p = f.properties || {};
+      const [lon, lat, kedalaman] = f.geometry?.coordinates || [0, 0, 0];
+      const epoch = Date.parse(p.time);
+      const wib = epochKeWib(epoch);
+      return {
+        id: `emsc-${p.source_id || p.unid || `${lat}_${lon}_${p.time}`}`,
+        date: wib.tanggal,
+        time: wib.jam,
+        dateTime: `${wib.tanggal} ${wib.jam}`,
+        epoch,
+        lat,
+        lon,
+        magnitude: Number(p.mag) || 0,
+        depth: `${Math.round(Number(kedalaman) || 0)} km`,
+        wilayah: p.flynn_region || 'Indonesia',
+        potensi: 'Tidak berpotensi tsunami',
+        sumber: 'EMSC'
+      };
+    });
+    apiCache.set(cacheKey, daftar, 5 * 60 * 1000);
+    return daftar;
+  } catch (error) {
+    console.warn('Gagal memuat katalog EMSC:', error.message);
+    return apiCache.get(cacheKey) || [];
+  }
+}
+
+// --- BMKG: gempa yang dirasakan (memuat gempa kecil M2-M4) ---
+export async function fetchFeltEarthquakes(forceRefresh = false) {
+  const cacheKey = 'bmkg_gempadirasakan';
+  if (!forceRefresh) {
+    const cached = apiCache.get(cacheKey);
+    if (cached) return cached;
+  }
+
+  try {
+    const res = await fetch('https://data.bmkg.go.id/DataMKG/TEWS/gempadirasakan.json', {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!res.ok) throw new Error(`BMKG Error: ${res.status}`);
+    const list = (await res.json())?.Infogempa?.gempa || [];
+    const daftar = list.map((g, idx) => {
+      const [latStr, lonStr] = g.Coordinates ? g.Coordinates.split(',') : [0, 0];
+      return {
+        id: `felt-${idx}-${g.Tanggal}-${g.Jam}`,
+        date: g.Tanggal || '',
+        time: g.Jam || '',
+        dateTime: `${g.Tanggal || ''} ${g.Jam || ''}`.trim(),
+        epoch: waktuBmkgKeEpoch(g.Tanggal, g.Jam),
+        lat: parseFloat(latStr) || 0,
+        lon: parseFloat(lonStr) || 0,
+        magnitude: parseFloat(g.Magnitude) || 0,
+        depth: g.Kedalaman || '-',
+        wilayah: g.Wilayah || 'Indonesia',
+        potensi: g.Potensi || 'Tidak berpotensi tsunami',
+        dirasakan: g.Dirasakan || '',
+        sumber: 'BMKG'
+      };
+    });
+    apiCache.set(cacheKey, daftar, 2 * 60 * 1000);
+    return daftar;
+  } catch (error) {
+    console.warn('Gagal memuat gempa dirasakan BMKG:', error.message);
+    return apiCache.get(cacheKey) || [];
+  }
 }
