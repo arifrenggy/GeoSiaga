@@ -15,6 +15,8 @@
  */
 
 import webpush from 'web-push';
+import volcanoesHandler from '../api/volcanoes.js';
+import hotspotsHandler from '../api/hotspots.js';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -872,6 +874,183 @@ async function kirimUjiAlarm() {
   console.log('[push] CATATAN: PUSH_TEST_ALARM masih 1 — uji akan dikirim ulang tiap server restart. Set 0 setelah selesai menguji.');
 }
 
+
+// --- Pemeriksa 6: notifikasi setiap ada perubahan data ---
+// Cuaca, kualitas udara, tingkat gunung api, dan jumlah titik panas dibandingkan
+// dengan rekaman terakhir. Bila berubah, satu ringkasan dikirim per sasaran.
+const NAMA_LEVEL_GUNUNG = { 1: 'Normal', 2: 'Waspada', 3: 'Siaga', 4: 'Awas' };
+
+const LABEL_CUACA = {
+  0: 'Cerah', 1: 'Cerah berawan', 2: 'Berawan', 3: 'Mendung', 45: 'Berkabut', 48: 'Kabut beku',
+  51: 'Gerimis ringan', 53: 'Gerimis', 55: 'Gerimis lebat', 61: 'Hujan ringan', 63: 'Hujan',
+  65: 'Hujan lebat', 80: 'Hujan lokal', 81: 'Hujan lokal lebat', 82: 'Hujan sangat lebat',
+  95: 'Hujan petir', 96: 'Hujan petir berbutir es', 99: 'Hujan petir hebat'
+};
+
+async function fetchCuacaTerkini(lat, lon) {
+  try {
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) return null;
+    const c = (await res.json())?.current;
+    if (!c || c.temperature_2m == null) return null;
+    return {
+      suhu: Math.round(c.temperature_2m),
+      kode: c.weather_code,
+      kondisi: LABEL_CUACA[c.weather_code] || `kode ${c.weather_code}`,
+      angin: Math.round(c.wind_speed_10m ?? 0)
+    };
+  } catch { return null; }
+}
+
+async function ambilStatusGunung() {
+  try {
+    const res = await volcanoesHandler(new Request('https://lokal/api/volcanoes'));
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data && data.statuses && Object.keys(data.statuses).length ? data.statuses : null;
+  } catch { return null; }
+}
+
+async function ambilJumlahTitikPanas() {
+  try {
+    const res = await hotspotsHandler(new Request('https://lokal/api/hotspots'));
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Number.isFinite(data?.jumlah) ? data.jumlah : null;
+  } catch { return null; }
+}
+
+export async function checkDataChanges(state, send = sendPush) {
+  if (String(process.env.PUSH_PERUBAHAN || 'on').toLowerCase() === 'off') return 0;
+  const subs = await loadSubscribers();
+  if (subs.length === 0) return 0;
+
+  const cooldownMs = (Number.parseInt(String(process.env.PUSH_PERUBAHAN_COOLDOWN_MIN || '').trim(), 10) || 5) * 60000;
+  const capHarian = Number.parseInt(String(process.env.PUSH_PERUBAHAN_CAP_HARIAN || '').trim(), 10) || 24;
+  const hariIni = new Date().toISOString().slice(0, 10);
+  if (!state.perubahanHarian || state.perubahanHarian.tanggal !== hariIni) {
+    state.perubahanHarian = { tanggal: hariIni, jumlah: 0 };
+  }
+  state.perubahan = state.perubahan || { terakhir: {}, snapshot: {}, gunung: null, titikPanas: null };
+  state.perubahan.terakhir = state.perubahan.terakhir || {};
+  state.perubahan.snapshot = state.perubahan.snapshot || {};
+
+  let sent = 0;
+  const kirim = async (sub, payload, kunci) => {
+    if (state.perubahanHarian.jumlah >= capHarian) return false;
+    const ok = await send(sub, payload, 3600);
+    if (ok) { state.perubahanHarian.jumlah++; state.perubahan.terakhir[kunci] = Date.now(); }
+    return ok;
+  };
+
+  // --- A. Perubahan per kota: cuaca & kualitas udara ---
+  const kota = new Map();
+  for (const s of subs) {
+    if (!s.city || s.city.lat == null) continue;
+    const key = `${s.city.name}_${Number(s.city.lat).toFixed(2)}_${Number(s.city.lon).toFixed(2)}`;
+    if (!kota.has(key)) kota.set(key, { city: s.city, subs: [] });
+    kota.get(key).subs.push(s);
+  }
+
+  for (const [key, group] of kota) {
+    const cuaca = await fetchCuacaTerkini(group.city.lat, group.city.lon);
+    const udara = await fetchCityAqi(group.city.lat, group.city.lon);
+    const lama = state.perubahan.snapshot[key];
+    const perubahan = [];
+
+    if (lama && cuaca) {
+      if (lama.suhu != null && Math.abs(cuaca.suhu - lama.suhu) >= 1) {
+        perubahan.push(`Suhu ${lama.suhu}°C menjadi ${cuaca.suhu}°C`);
+      }
+      if (lama.kode != null && cuaca.kode !== lama.kode) {
+        perubahan.push(`Cuaca ${lama.kondisi} menjadi ${cuaca.kondisi}`);
+      }
+    }
+    const labelBuruk = ['Tidak sehat', 'Sangat tidak sehat', 'Berbahaya'];
+    if (lama && udara && lama.aqiLabel && udara.label !== lama.aqiLabel && !labelBuruk.includes(udara.label)) {
+      // perubahan ke kondisi buruk sudah dikirim oleh pemeriksa kualitas udara
+      perubahan.push(`Kualitas udara ${lama.aqiLabel} menjadi ${udara.label} (AQI ${udara.aqi})`);
+    }
+
+    state.perubahan.snapshot[key] = {
+      suhu: cuaca ? cuaca.suhu : (lama ? lama.suhu : null),
+      kode: cuaca ? cuaca.kode : (lama ? lama.kode : null),
+      kondisi: cuaca ? cuaca.kondisi : (lama ? lama.kondisi : null),
+      aqi: udara ? udara.aqi : (lama ? lama.aqi : null),
+      aqiLabel: udara ? udara.label : (lama ? lama.aqiLabel : null),
+      ts: Date.now()
+    };
+
+    if (perubahan.length === 0) continue;
+    if (Date.now() - (state.perubahan.terakhir[key] || 0) < cooldownMs) continue;
+
+    for (const sub of group.subs) {
+      const ok = await kirim(sub, {
+        title: `📊 Data ${group.city.name} Diperbarui`,
+        body: perubahan.join(' • '),
+        tag: `perubahan-${key}`,
+        url: '/',
+        vibrate: [200, 100, 200],
+        requireInteraction: false,
+        level: 'info'
+      }, key);
+      if (ok) sent++;
+    }
+  }
+
+  // --- B. Perubahan nasional: tingkat gunung api & jumlah titik panas ---
+  const nasional = [];
+  const statusGunung = await ambilStatusGunung();
+  if (statusGunung) {
+    const lamaG = state.perubahan.gunung;
+    if (lamaG) {
+      const naik = [];
+      const turun = [];
+      for (const [nama, level] of Object.entries(statusGunung)) {
+        const l = lamaG[nama];
+        if (l == null || Number(l) === Number(level)) continue;
+        const teks = `${nama} ${NAMA_LEVEL_GUNUNG[l] || l} menjadi ${NAMA_LEVEL_GUNUNG[level] || level}`;
+        (Number(level) > Number(l) ? naik : turun).push(teks);
+      }
+      if (naik.length) nasional.push(`Gunung api naik tingkat: ${naik.slice(0, 3).join('; ')}${naik.length > 3 ? ` (+${naik.length - 3} lain)` : ''}`);
+      if (turun.length) nasional.push(`Gunung api turun tingkat: ${turun.slice(0, 3).join('; ')}${turun.length > 3 ? ` (+${turun.length - 3} lain)` : ''}`);
+    }
+    state.perubahan.gunung = statusGunung;
+  }
+
+  const jumlahPanas = await ambilJumlahTitikPanas();
+  if (jumlahPanas != null) {
+    const lamaP = state.perubahan.titikPanas;
+    if (lamaP != null && lamaP !== jumlahPanas) {
+      const selisih = jumlahPanas - lamaP;
+      if (Math.abs(selisih) >= 50) {
+        nasional.push(`Titik panas ${selisih > 0 ? 'bertambah' : 'berkurang'} ${Math.abs(selisih)} (kini ${jumlahPanas})`);
+      }
+    }
+    state.perubahan.titikPanas = jumlahPanas;
+  }
+
+  if (nasional.length > 0 && Date.now() - (state.perubahan.terakhir.nasional || 0) >= cooldownMs) {
+    for (const sub of subs) {
+      const ok = await kirim(sub, {
+        title: '📊 Perubahan Data Nasional GeoSiaga',
+        body: nasional.join(' • '),
+        tag: 'perubahan-nasional',
+        url: '/',
+        vibrate: [200, 100, 200],
+        requireInteraction: false,
+        level: 'info'
+      }, 'nasional');
+      if (ok) sent++;
+    }
+  }
+
+  return sent;
+}
+
 // --- Loop pemantauan ---
 let watcherTimer = null;
 
@@ -890,9 +1069,10 @@ export function startPushWatcher() {
       const n3 = await checkWildfires(state);
       const n4 = await checkRainIncoming(state);
       const n5 = await checkAir(state);
+      const n6 = await checkDataChanges(state);
       jadwalkanLaporanHarian(state);
-      if (n1 + n2 + n3 + n4 + n5 > 0) {
-        console.log(`[push] Terkirim: ${n1} gempa, ${n2} hujan lebat, ${n3} karhutla, ${n4} bakal-hujan, ${n5} udara`);
+      if (n1 + n2 + n3 + n4 + n5 + n6 > 0) {
+        console.log(`[push] Terkirim: ${n1} gempa, ${n2} hujan lebat, ${n3} karhutla, ${n4} bakal-hujan, ${n5} udara, ${n6} perubahan-data`);
       }
     } catch (err) {
       console.error('[push] Kesalahan pemantauan:', err.message);
