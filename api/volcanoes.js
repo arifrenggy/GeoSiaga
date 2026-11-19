@@ -67,7 +67,8 @@ async function gagal(error, status) {
         sourceUrl: MAGMA_URL,
         fetchedAt: cache.fetchedAt,
         catatan: 'Sumber resmi sedang tidak dapat dihubungi, menampilkan data terakhir yang tersimpan.',
-        statuses: cache.statuses
+        statuses: cache.statuses,
+        daftar: cache.daftar || []
       },
       200,
       'public, max-age=60'
@@ -99,13 +100,15 @@ async function inti(request) {
       }
     }
 
-    const statuses = parseMagmaStatusTable(html);
+    const hasil = parseMagmaStatusTable(html);
+    const statuses = hasil?.statuses;
+    const daftar = hasil?.daftar || [];
 
     if (!statuses || Object.keys(statuses).length === 0) {
       return gagal('Format halaman MAGMA berubah / tabel status tidak ditemukan', 502);
     }
 
-    await simpanCache({ fetchedAt: new Date().toISOString(), statuses });
+    await simpanCache({ fetchedAt: new Date().toISOString(), statuses, daftar });
 
     return json(
       {
@@ -114,6 +117,7 @@ async function inti(request) {
         sourceUrl: MAGMA_URL,
         fetchedAt: new Date().toISOString(),
         jalur,
+        daftar, // [{ nama, wilayah, level }]
         statuses // { "Nama Gunung": 1..4 }
       },
       200,
@@ -131,6 +135,7 @@ function parseMagmaStatusTable(html) {
   const rows = tableMatch[0].match(/<tr[\s\S]*?<\/tr>/gi) || [];
   const levelMap = { 'IV': 4, 'III': 3, 'II': 2, 'I': 1 };
   const statuses = {};
+  const daftar = [];
   let currentLevel = null;
 
   for (const row of rows) {
@@ -149,14 +154,18 @@ function parseMagmaStatusTable(html) {
 
     // Baris data gunung api: "Anak Krakatau - Lampung Lihat laporan"
     if (currentLevel !== null && plain.includes('-') && !/^Tingkat/i.test(plain) && !plain.match(/^\d+$/)) {
-      const namePart = plain.split(' - ')[0].split(' Lihat')[0].trim();
+      const tanpaTautan = plain.split(' Lihat')[0].trim();
+      const [nama, ...sisa] = tanpaTautan.split(' - ');
+      const namePart = (nama || '').trim();
+      const wilayah = sisa.join(' - ').trim();
       if (namePart && namePart.length > 2 && !namePart.match(/^(Hasil|Tingkat)/i)) {
         statuses[namePart] = currentLevel;
+        daftar.push({ nama: namePart, wilayah, level: currentLevel });
       }
     }
   }
 
-  return statuses;
+  return { statuses, daftar };
 }
 
 function json(body, status = 200, cacheControl = 'no-store') {

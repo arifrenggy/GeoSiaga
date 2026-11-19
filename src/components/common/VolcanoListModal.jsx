@@ -21,8 +21,8 @@ export function VolcanoListModal({ isOpen, onClose, userLocation, onSelectVolcan
 
   const filteredVolcanoes = useMemo(() => {
     return (allVolcanoes || []).filter((v) => {
-      const matchSearch = v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          v.province.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchSearch = (v.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (v.province || '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchRegion = selectedRegion === 'Semua' || v.region === selectedRegion;
       
       let matchStatus = true;
@@ -196,7 +196,7 @@ export function VolcanoListModal({ isOpen, onClose, userLocation, onSelectVolcan
                     color: 'var(--text-muted)',
                     fontWeight: '600'
                   }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><MapPin size={13} /> Jarak: <strong style={{ color: 'var(--color-primary)' }}>{v.distanceKm} km</strong> dari posisi Anda</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><MapPin size={13} /> {v.distanceKm == null ? 'Jarak belum tersedia' : <>Jarak: <strong style={{ color: 'var(--color-primary)' }}>{v.distanceKm} km</strong> dari posisi Anda</>}</span>
                     <span>`Radius bahaya: ${v.dangerRadiusKm} km`</span>
                   </div>
                 </div>

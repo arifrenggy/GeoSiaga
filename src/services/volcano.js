@@ -14,7 +14,8 @@ import { apiCache } from '../utils/apiCache.js';
 
 const STATUS_CACHE_KEY = 'magma_volcano_status_v1';
 
-let liveStatusMap = null; // { "nama ternormalisasi": level 1..4 }
+let liveStatusMap = null;
+let liveDaftar = []; // { "nama ternormalisasi": level 1..4 }
 let statusVersion = 0; // naik setiap kali status live termuat -> invalidasi cache perhitungan
 
 function normalizeName(name) {
@@ -62,6 +63,7 @@ export async function refreshVolcanoStatuses(force = false) {
     }
 
     liveStatusMap = data.statuses;
+    liveDaftar = Array.isArray(data.daftar) ? data.daftar : [];
     statusVersion += 1; // cache perhitungan lama (status unknown) otomatis tak terpakai
     apiCache.set(STATUS_CACHE_KEY, data.statuses, 60 * 60 * 1000); // 1 jam
     return { ok: true, source: data.source, fetchedAt: data.fetchedAt };
@@ -127,15 +129,36 @@ export function getNearbyVolcanoes(lat, lon, maxRadiusKm = 250) {
     };
   }).sort((a, b) => a.distanceKm - b.distanceKm);
 
+  // Tambahkan gunung yang dilaporkan MAGMA tetapi belum ada di daftar lokal
+  // (tanpa koordinat, jadi hanya tampil di daftar, tidak di peta).
+  const namaLokal = new Set(INDONESIA_VOLCANOES.map((v) => normalizeName(v.name)));
+  const tambahan = liveDaftar
+    .filter((g) => g?.nama && !namaLokal.has(normalizeName(g.nama)))
+    .map((g) => ({
+      name: g.nama,
+      province: g.wilayah || 'Indonesia',
+      lat: null,
+      lon: null,
+      distanceKm: null,
+      dangerRadiusKm: 0,
+      statusLevel: g.level || 0,
+      status: VOLCANO_STATUS_LEVELS[g.level || 0] || VOLCANO_STATUS_LEVELS[0],
+      isInsideDangerZone: false,
+      isCautionZone: false,
+      tanpaKoordinat: true
+    }))
+    .sort((a, b) => b.statusLevel - a.statusLevel || a.name.localeCompare(b.name));
+
   const nearest = volcanoesWithDistance[0] || null;
   const nearbyList = volcanoesWithDistance.filter((v) => v.distanceKm <= maxRadiusKm);
-  const alertCount = INDONESIA_VOLCANOES.filter((v) => resolveStatusLevel(v.name) >= 3).length;
+  const alertCount = volcanoesWithDistance.filter((v) => v.statusLevel >= 3).length;
 
   const result = {
     nearest,
     nearbyList,
-    allVolcanoes: volcanoesWithDistance,
-    alertCount
+    // seluruh gunung: yang punya koordinat (bisa tampil di peta) + sisanya dari MAGMA
+    allVolcanoes: [...volcanoesWithDistance, ...tambahan],
+    alertCount: alertCount + tambahan.filter((v) => v.statusLevel >= 3).length
   };
 
   apiCache.set(cacheKey, result, 10 * 60 * 1000);
