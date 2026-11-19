@@ -28,7 +28,11 @@ export default async function handler(request) {
     // (VIIRS kadang tidak mengembalikan baris walau MODIS ada), agar peta tidak
     // tampil kosong padahal deteksi resmi tersedia.
     const BBOX = '94.5,-11.5,141.5,7.5';
+    // Jendela hari: NASA FIRMS menunda sebagian data NRT, sehingga 1 hari sering kosong.
+    // Default 3 hari (bisa diatur lewat HOTSPOT_DAYS, maksimal 5 sesuai batas API).
+    const DAYS = Math.min(5, Math.max(1, parseInt(process.env.HOTSPOT_DAYS || '3', 10) || 3));
     const SOURCES = [
+      { id: 'VIIRS_NOAA21_NRT', label: 'VIIRS NOAA-21' },
       { id: 'VIIRS_SNPP_NRT', label: 'VIIRS SNPP' },
       { id: 'VIIRS_NOAA20_NRT', label: 'VIIRS NOAA-20' },
       { id: 'MODIS_NRT', label: 'MODIS Terra/Aqua' }
@@ -36,7 +40,7 @@ export default async function handler(request) {
 
     const results = await Promise.all(
       SOURCES.map(async (src) => {
-        const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${MAP_KEY}/${src.id}/${BBOX}/1`;
+        const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${MAP_KEY}/${src.id}/${BBOX}/${DAYS}`;
         try {
           const r = await fetch(url, { headers: { 'Accept': 'text/csv' } });
           if (!r.ok) return { ...src, ok: false, error: `status ${r.status}`, rows: [] };
@@ -80,6 +84,13 @@ export default async function handler(request) {
         fetchedAt: new Date().toISOString(),
         v: 2,
         totalDetected: mentah.length,
+        days: DAYS,
+        jumlah: hotspots.length,
+        perKeyakinan: {
+          tinggi: hotspots.filter((h) => h.confidenceRaw === 'h').length,
+          sedang: hotspots.filter((h) => h.confidenceRaw === 'n').length,
+          rendah: hotspots.filter((h) => h.confidenceRaw === 'l').length
+        },
         sources: results.map((r) => ({ id: r.id, label: r.label, deteksi: r.rows.length, ok: r.ok })),
         satellites: compact.satellites,
         hotspots: compact.rows
