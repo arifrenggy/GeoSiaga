@@ -24,6 +24,7 @@ import widgetHandler from './api/widget.js';
 import badgeHandler from './api/badge.js';
 import {
   pushPublicKeyHandler,
+  pushStatusHandler,
   pushSubscribeHandler,
   pushTestHandler,
   pushUnsubscribeHandler,
@@ -62,7 +63,8 @@ const API_ROUTES = {
   '/api/push/public-key': pushPublicKeyHandler,
   '/api/push/subscribe': pushSubscribeHandler,
   '/api/push/unsubscribe': pushUnsubscribeHandler,
-  '/api/push/test': pushTestHandler
+  '/api/push/test': pushTestHandler,
+  '/api/push/status': pushStatusHandler
   // '/api/og' hanya tersedia di Vercel (butuh @vercel/og)
 };
 

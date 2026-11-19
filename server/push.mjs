@@ -179,6 +179,21 @@ export async function pushTestHandler(request) {
   });
 }
 
+export async function pushStatusHandler() {
+  // Ringkasan untuk pemantauan: jumlah langganan dan kapan terakhir diperbarui.
+  // Tidak memuat endpoint atau kunci perangkat siapa pun.
+  const subs = await loadSubscribers();
+  const state = await loadState();
+  return new Response(JSON.stringify({
+    langganan: subs.length,
+    kota: [...new Set(subs.map((s) => s.city?.name).filter(Boolean))].length,
+    gempaTercatat: (state.sentQuakes || []).length,
+    diperbarui: new Date().toISOString(),
+    vapid: Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY),
+    intervalMenit: intervalMenit()
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+}
+
 export async function pushUnsubscribeHandler(request) {
   try {
     const body = await request.json();
