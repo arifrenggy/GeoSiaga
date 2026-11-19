@@ -17,7 +17,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'anak-ranakah',
@@ -30,7 +30,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'arjuno-welirang',
@@ -43,7 +43,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'awu',
@@ -56,7 +56,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'banda-api',
@@ -69,7 +69,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'batutara',
@@ -82,7 +82,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'colo',
@@ -95,7 +95,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'ebulobo',
@@ -108,7 +108,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'egon',
@@ -121,7 +121,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'galunggung',
@@ -134,7 +134,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'gamkonora',
@@ -147,7 +147,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'guntur',
@@ -160,7 +160,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'ili-boleng',
@@ -173,7 +173,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'ili-lewotolok',
@@ -186,7 +186,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'inierie',
@@ -199,7 +199,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'iya',
@@ -212,7 +212,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'kaba',
@@ -225,7 +225,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'kelimutu',
@@ -238,7 +238,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'lewotobi-laki',
@@ -251,7 +251,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'lewotobi-perempuan',
@@ -264,7 +264,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'mahawu',
@@ -277,7 +277,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'rokatenda',
@@ -290,7 +290,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'sangeangapi',
@@ -303,7 +303,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'seulawah-agam',
@@ -316,7 +316,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'sirung',
@@ -329,7 +329,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'sorikmarapi',
@@ -342,7 +342,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'sumbing',
@@ -355,7 +355,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'sundoro',
@@ -368,7 +368,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'talang',
@@ -381,7 +381,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'tambora',
@@ -394,7 +394,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'tandikat',
@@ -407,7 +407,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'tangkoko',
@@ -420,7 +420,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
   {
     id: 'wurlali',
@@ -433,7 +433,7 @@ export const VOLCANO_TAMBAHAN = [
     type: 'Gunung api',
     statusLevel: 0,
     dangerRadiusKm: 0,
-    radiusBelumDiketahui: True,
+    radiusBelumDiketahui: true,
   },
 ];
 
