@@ -18,6 +18,24 @@ const MAGMA_URL = 'https://magma.esdm.go.id/v1/gunung-api/tingkat-aktivitas';
 // Hanya aktif di server mandiri (Node); di edge/Vercel fungsi ini tidak dijalankan.
 const CACHE_FILE = 'data/volcanoes-cache.json';
 
+// MAGMA menolak permintaan dari IP pusat data (Railway, AWS, dsb) walau bisa dibuka
+// dari jaringan rumah di Indonesia. Karena itu dipakai jalur cadangan pembaca halaman.
+const PROXY_URL = 'https://r.jina.ai/';
+const BATAS_WAKTU_MS = 12000;
+
+async function ambilHalaman(url, tambahanHeader = {}) {
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'GeoSiaga/1.2 (monitoring lingkungan)',
+      'Accept': 'text/html',
+      ...tambahanHeader
+    },
+    signal: AbortSignal.timeout(BATAS_WAKTU_MS)
+  });
+  if (!res.ok) throw new Error(`status ${res.status}`);
+  return res.text();
+}
+
 async function simpanCache(data) {
   try {
     if (!globalThis.process?.versions?.node) return;
@@ -60,18 +78,27 @@ async function gagal(error, status) {
 
 export default async function handler(request) {
   try {
-    const res = await fetch(MAGMA_URL, {
-      headers: {
-        'User-Agent': 'GeoSiaga/1.0 (monitoring lingkungan; +https://geosiaga.vercel.app)',
-        'Accept': 'text/html'
-      }
-    });
+    let html = null;
+    let jalur = 'langsung';
+    let galat = null;
 
-    if (!res.ok) {
-      return gagal(`MAGMA ESDM merespons status ${res.status}`, 502);
+    // Jalur 1: sambungan langsung ke MAGMA
+    try {
+      html = await ambilHalaman(MAGMA_URL);
+    } catch (e) {
+      galat = e.message;
     }
 
-    const html = await res.text();
+    // Jalur 2: pembaca halaman pihak ketiga bila jalur langsung ditolak
+    if (!html) {
+      try {
+        html = await ambilHalaman(PROXY_URL + MAGMA_URL, { 'X-Return-Format': 'html' });
+        jalur = 'cadangan';
+      } catch (e) {
+        return gagal(`MAGMA tidak dapat dihubungi (langsung: ${galat}; cadangan: ${e.message})`, 502);
+      }
+    }
+
     const statuses = parseMagmaStatusTable(html);
 
     if (!statuses || Object.keys(statuses).length === 0) {
@@ -86,6 +113,7 @@ export default async function handler(request) {
         source: 'PVMBG / MAGMA Indonesia (ESDM)',
         sourceUrl: MAGMA_URL,
         fetchedAt: new Date().toISOString(),
+        jalur,
         statuses // { "Nama Gunung": 1..4 }
       },
       200,
