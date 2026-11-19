@@ -875,6 +875,82 @@ async function kirimUjiAlarm() {
 }
 
 
+
+// --- Simulasi peringatan darurat (dijaga kunci, tidak untuk publik) ---
+export async function pushSimulasiHandler(request) {
+  const kunciServer = String(process.env.PUSH_SIM_KEY || '').trim();
+  if (!kunciServer) {
+    return new Response(JSON.stringify({ ok: false, pesan: 'Simulasi belum aktif: set PUSH_SIM_KEY di environment' }), {
+      status: 503, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+  const kunciKirim = String(request.headers.get('x-sim-key') || '').trim();
+  if (kunciKirim !== kunciServer) {
+    return new Response(JSON.stringify({ ok: false, pesan: 'Kunci simulasi salah' }), {
+      status: 401, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  let isi = {};
+  try { isi = await request.json(); } catch { isi = {}; }
+  const jenis = String(isi.jenis || 'gempa').toLowerCase();
+  const magnitudo = Number(isi.magnitudo) || 6.5;
+  const wilayah = String(isi.wilayah || 'Laut Banda');
+
+  const daftar = {
+    gempa: {
+      title: `🚨 SIMULASI Gempa M${magnitudo.toFixed(1)} — ${wilayah}`,
+      body: `Ini latihan sistem peringatan. Skenario gempa M${magnitudo.toFixed(1)} di ${wilayah}, kedalaman 10 km. Tidak ada gempa sungguhan.`,
+      tag: 'simulasi-gempa', url: '/?alarm=1', vibrate: ALARM_VIBRATE, requireInteraction: true, urgent: true, level: 'urgent'
+    },
+    tsunami: {
+      title: `⚠️ SIMULASI PERINGATAN TSUNAMI — M${magnitudo.toFixed(1)}`,
+      body: `Ini latihan sistem peringatan. Skenario tsunami di ${wilayah}. Tidak ada tsunami sungguhan, tidak perlu mengungsi.`,
+      tag: 'simulasi-tsunami', url: '/?alarm=1', vibrate: ALARM_VIBRATE, requireInteraction: true, urgent: true, level: 'urgent'
+    },
+    gunung: {
+      title: '🌋 SIMULASI Status Gunung Api Naik',
+      body: 'Ini latihan sistem peringatan. Skenario Gunung Merapi naik dari Waspada menjadi Siaga. Status sebenarnya tidak berubah.',
+      tag: 'simulasi-gunung', url: '/', vibrate: [300, 150, 300], requireInteraction: false, level: 'alert'
+    },
+    udara: {
+      title: '🌫️ SIMULASI Kualitas Udara Buruk',
+      body: 'Ini latihan sistem peringatan. Skenario AQI 165 (Tidak sehat) di kota Anda. Data sebenarnya tidak berubah.',
+      tag: 'simulasi-udara', url: '/', vibrate: [300, 150, 300], requireInteraction: false, level: 'alert'
+    },
+    karhutla: {
+      title: '🔥 SIMULASI Titik Panas Dekat Permukiman',
+      body: 'Ini latihan sistem peringatan. Skenario titik panas 12 km dari kota Anda. Tidak ada kebakaran sungguhan.',
+      tag: 'simulasi-karhutla', url: '/', vibrate: [300, 150, 300], requireInteraction: false, level: 'alert'
+    }
+  };
+
+  const payload = daftar[jenis];
+  if (!payload) {
+    return new Response(JSON.stringify({ ok: false, pesan: `Jenis tidak dikenal. Pilihan: ${Object.keys(daftar).join(', ')}` }), {
+      status: 400, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  const subs = await loadSubscribers();
+  if (subs.length === 0) {
+    return new Response(JSON.stringify({ ok: false, pesan: 'Belum ada langganan' }), {
+      status: 404, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  let terkirim = 0;
+  for (const sub of subs) {
+    const sukses = await sendPush(sub, payload, 600);
+    if (sukses) terkirim++;
+    if (payload.urgent) ulangiAlarmDarurat(sub, payload);
+  }
+  console.log(`[push] Simulasi ${jenis}: terkirim ${terkirim} dari ${subs.length} langganan`);
+  return new Response(JSON.stringify({ ok: true, jenis, terkirim, total: subs.length }), {
+    status: 200, headers: { 'Content-Type': 'application/json' }
+  });
+}
+
 // --- Pemeriksa 6: notifikasi setiap ada perubahan data ---
 // Cuaca, kualitas udara, tingkat gunung api, dan jumlah titik panas dibandingkan
 // dengan rekaman terakhir. Bila berubah, satu ringkasan dikirim per sasaran.
