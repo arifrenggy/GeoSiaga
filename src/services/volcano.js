@@ -1,4 +1,4 @@
-import { INDONESIA_VOLCANOES, VOLCANO_STATUS_LEVELS } from '../utils/volcanoes.js';
+import { INDONESIA_VOLCANOES, VOLCANO_STATUS_LEVELS, SEMUA_GUNUNG_API } from '../utils/volcanoes.js';
 import { calculateDistance } from '../utils/geo.js';
 import { apiCache } from '../utils/apiCache.js';
 
@@ -112,7 +112,7 @@ export function getNearbyVolcanoes(lat, lon, maxRadiusKm = 250) {
   const cached = apiCache.get(cacheKey);
   if (cached) return cached;
 
-  const volcanoesWithDistance = INDONESIA_VOLCANOES.map((v) => {
+  const volcanoesWithDistance = SEMUA_GUNUNG_API.map((v) => {
     const distanceKm = Math.round(calculateDistance(lat, lon, v.lat, v.lon) * 10) / 10;
     const statusLevel = resolveStatusLevel(v.name);
     const status = VOLCANO_STATUS_LEVELS[statusLevel] || VOLCANO_STATUS_LEVELS[0];
@@ -131,7 +131,7 @@ export function getNearbyVolcanoes(lat, lon, maxRadiusKm = 250) {
 
   // Tambahkan gunung yang dilaporkan MAGMA tetapi belum ada di daftar lokal
   // (tanpa koordinat, jadi hanya tampil di daftar, tidak di peta).
-  const namaLokal = new Set(INDONESIA_VOLCANOES.map((v) => normalizeName(v.name)));
+  const namaLokal = new Set(SEMUA_GUNUNG_API.map((v) => normalizeName(v.name)));
   const tambahan = liveDaftar
     .filter((g) => g?.nama && !namaLokal.has(normalizeName(g.nama)))
     .map((g) => ({

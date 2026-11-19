@@ -197,7 +197,7 @@ export function VolcanoListModal({ isOpen, onClose, userLocation, onSelectVolcan
                     fontWeight: '600'
                   }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><MapPin size={13} /> {v.distanceKm == null ? 'Jarak belum tersedia' : <>Jarak: <strong style={{ color: 'var(--color-primary)' }}>{v.distanceKm} km</strong> dari posisi Anda</>}</span>
-                    <span>`Radius bahaya: ${v.dangerRadiusKm} km`</span>
+                    <span>{v.dangerRadiusKm > 0 ? `Radius bahaya: ${v.dangerRadiusKm} km` : 'Radius bahaya belum tersedia'}</span>
                   </div>
                 </div>
               ))

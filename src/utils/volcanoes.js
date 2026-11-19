@@ -1,3 +1,5 @@
+import { VOLCANO_TAMBAHAN } from './volcanoes-tambahan.js';
+
 /**
  * Database Geospasial Gunung Api Aktif di Indonesia
  * Koordinat, elevasi, dan radius bahaya = data referensi statis (akurat).
@@ -473,3 +475,6 @@ export const INDONESIA_VOLCANOES = [
     note: 'Radius 1.5 km dari kawah puncak dilarang untuk beraktivitas.'
   }
 ];
+
+// Gabungan: 29 gunung dengan radius bahaya resmi + koordinat tambahan dari MAGMA
+export const SEMUA_GUNUNG_API = [...INDONESIA_VOLCANOES, ...VOLCANO_TAMBAHAN];

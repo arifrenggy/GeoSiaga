@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } 
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { INDONESIA_CITIES } from '../../utils/cities';
-import { INDONESIA_VOLCANOES, VOLCANO_STATUS_LEVELS } from '../../utils/volcanoes';
+import { SEMUA_GUNUNG_API, VOLCANO_STATUS_LEVELS } from '../../utils/volcanoes';
 import { translations } from '../../utils/i18n';
 import { MapPin, Compass, ZoomIn, ZoomOut, Flame, Mountain, Activity, Satellite } from 'lucide-react';
 
@@ -364,7 +364,7 @@ export function IndonesiaMap({ currentLocation, earthquakes, hotspots = [], onSe
             }}
           >
             <Mountain size={13} strokeWidth={2.2} />
-            <span>Gunung Api ({INDONESIA_VOLCANOES.length})</span>
+            <span>Gunung Api ({SEMUA_GUNUNG_API.length})</span>
           </button>
 
           <button
@@ -545,13 +545,13 @@ export function IndonesiaMap({ currentLocation, earthquakes, hotspots = [], onSe
           })}
 
           {/* Volcano markers */}
-          {showVolcanoes && INDONESIA_VOLCANOES.map((v) => {
+          {showVolcanoes && SEMUA_GUNUNG_API.map((v) => {
             const status = VOLCANO_STATUS_LEVELS[v.statusLevel] || VOLCANO_STATUS_LEVELS[1];
             return (
               <Circle
                 key={v.id}
                 center={[v.lat, v.lon]}
-                radius={(v.dangerRadiusKm || 3) * 1000}
+                radius={(v.dangerRadiusKm > 0 ? v.dangerRadiusKm : 2) * 1000}
                 pathOptions={{
                   color: status.color,
                   fillColor: status.color,
@@ -578,10 +578,12 @@ export function IndonesiaMap({ currentLocation, earthquakes, hotspots = [], onSe
                       {status.code} ({status.name})
                     </span>
                     <p style={{ margin: '2px 0', fontSize: '0.75rem', color: '#4b5563', fontWeight: '600' }}>
-                      Elevasi: {v.elevation} mdpl · {v.province}
+                      {v.elevation ? `Elevasi: ${v.elevation} mdpl` : 'Elevasi belum tersedia'} · {v.province}
                     </p>
                     <p style={{ margin: '2px 0 0 0', fontSize: '0.7rem', color: '#6b7280' }}>
-                      `Radius Bahaya PVMBG: ${v.dangerRadiusKm} km`
+                      {v.dangerRadiusKm > 0
+                        ? `Radius bahaya PVMBG: ${v.dangerRadiusKm} km`
+                        : 'Radius bahaya resmi belum tersedia'}
                     </p>
                   </div>
                 </Popup>
