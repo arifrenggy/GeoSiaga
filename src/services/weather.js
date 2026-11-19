@@ -40,7 +40,7 @@ export async function fetchWeatherData(lat, lon, forceRefresh = false) {
       daily: data.daily || null
     };
 
-    apiCache.set(cacheKey, formatted, 5 * 60 * 1000);
+    apiCache.set(cacheKey, formatted, 60 * 1000);
     return formatted;
   } catch (error) {
     // JUJUR: saat API gagal, kembalikan data cache lama (nyata) jika ada, atau null.

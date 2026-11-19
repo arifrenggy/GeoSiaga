@@ -16,7 +16,6 @@
     "vite": "^8.2.2"
   },
   "dependencies": {
-    "@vercel/analytics": "^2.0.1",
     "@vercel/og": "^1.0.2",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.43.0",

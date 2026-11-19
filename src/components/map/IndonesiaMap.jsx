@@ -58,6 +58,18 @@ const activeCityIcon = L.icon({
   popupAnchor: [0, -30]
 });
 
+// Ikon gunung api: segitiga dengan warna sesuai tingkat aktivitas
+const volcanoIcon = (warna) => L.divIcon({
+  html: `<svg width="22" height="22" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2.5 L21.5 21 H2.5 Z" fill="${warna}" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M8.8 9.5 L12 13.5 L15.2 9.5" stroke="#ffffff" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`,
+  className: 'geo-volcano-icon',
+  iconSize: [22, 22],
+  iconAnchor: [11, 21],
+  popupAnchor: [0, -18]
+});
+
 const flameIcon = L.icon({
   iconUrl: flamePinSvg,
   iconSize: [22, 28],
@@ -548,46 +560,50 @@ export function IndonesiaMap({ currentLocation, earthquakes, hotspots = [], onSe
           {showVolcanoes && SEMUA_GUNUNG_API.map((v) => {
             const status = VOLCANO_STATUS_LEVELS[v.statusLevel] || VOLCANO_STATUS_LEVELS[1];
             return (
-              <Circle
-                key={v.id}
-                center={[v.lat, v.lon]}
-                radius={(v.dangerRadiusKm > 0 ? v.dangerRadiusKm : 2) * 1000}
-                pathOptions={{
-                  color: status.color,
-                  fillColor: status.color,
-                  fillOpacity: 0.55,
-                  weight: 2
-                }}
-              >
-                <Popup>
-                  <div style={{ padding: '4px', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <Mountain size={15} color={status.color} />
-                      <strong style={{ fontSize: '0.95rem', color: '#111827' }}>{v.name}</strong>
+              <React.Fragment key={v.id}>
+                {v.dangerRadiusKm > 0 && (
+                  <Circle
+                    center={[v.lat, v.lon]}
+                    radius={v.dangerRadiusKm * 1000}
+                    pathOptions={{
+                      color: status.color,
+                      fillColor: status.color,
+                      fillOpacity: 0.18,
+                      weight: 1.5
+                    }}
+                  />
+                )}
+                <Marker position={[v.lat, v.lon]} icon={volcanoIcon(status.color)}>
+                  <Popup>
+                    <div style={{ padding: '4px', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <Mountain size={15} color={status.color} />
+                        <strong style={{ fontSize: '0.95rem', color: '#111827' }}>{v.name}</strong>
+                      </div>
+                      <span style={{
+                        display: 'inline-block',
+                        margin: '4px 0',
+                        padding: '2px 6px',
+                        borderRadius: '3px',
+                        backgroundColor: status.color,
+                        color: '#fff',
+                        fontSize: '0.7rem',
+                        fontWeight: '800'
+                      }}>
+                        {status.code} ({status.name})
+                      </span>
+                      <p style={{ margin: '2px 0', fontSize: '0.75rem', color: '#4b5563', fontWeight: '600' }}>
+                        {v.elevation ? `Elevasi: ${v.elevation} mdpl` : 'Elevasi belum tersedia'} · {v.province}
+                      </p>
+                      <p style={{ margin: '2px 0 0 0', fontSize: '0.7rem', color: '#6b7280' }}>
+                        {v.dangerRadiusKm > 0
+                          ? `Radius bahaya PVMBG: ${v.dangerRadiusKm} km`
+                          : 'Radius bahaya resmi belum tersedia'}
+                      </p>
                     </div>
-                    <span style={{
-                      display: 'inline-block',
-                      margin: '4px 0',
-                      padding: '2px 6px',
-                      borderRadius: '3px',
-                      backgroundColor: status.color,
-                      color: '#fff',
-                      fontSize: '0.7rem',
-                      fontWeight: '800'
-                    }}>
-                      {status.code} ({status.name})
-                    </span>
-                    <p style={{ margin: '2px 0', fontSize: '0.75rem', color: '#4b5563', fontWeight: '600' }}>
-                      {v.elevation ? `Elevasi: ${v.elevation} mdpl` : 'Elevasi belum tersedia'} · {v.province}
-                    </p>
-                    <p style={{ margin: '2px 0 0 0', fontSize: '0.7rem', color: '#6b7280' }}>
-                      {v.dangerRadiusKm > 0
-                        ? `Radius bahaya PVMBG: ${v.dangerRadiusKm} km`
-                        : 'Radius bahaya resmi belum tersedia'}
-                    </p>
-                  </div>
-                </Popup>
-              </Circle>
+                  </Popup>
+                </Marker>
+              </React.Fragment>
             );
           })}
 

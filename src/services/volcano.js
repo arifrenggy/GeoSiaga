@@ -65,7 +65,7 @@ export async function refreshVolcanoStatuses(force = false) {
     liveStatusMap = data.statuses;
     liveDaftar = Array.isArray(data.daftar) ? data.daftar : [];
     statusVersion += 1; // cache perhitungan lama (status unknown) otomatis tak terpakai
-    apiCache.set(STATUS_CACHE_KEY, data.statuses, 60 * 60 * 1000); // 1 jam
+    apiCache.set(STATUS_CACHE_KEY, data.statuses, 60 * 1000); // 1 jam
     return { ok: true, source: data.source, fetchedAt: data.fetchedAt };
   } catch (err) {
     return { ok: false, error: `Gagal menghubungi /api/volcanoes: ${err.message}` };
@@ -161,6 +161,6 @@ export function getNearbyVolcanoes(lat, lon, maxRadiusKm = 250) {
     alertCount: alertCount + tambahan.filter((v) => v.statusLevel >= 3).length
   };
 
-  apiCache.set(cacheKey, result, 10 * 60 * 1000);
+  apiCache.set(cacheKey, result, 60 * 1000);
   return result;
 }

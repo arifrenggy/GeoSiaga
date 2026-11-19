@@ -83,6 +83,6 @@ export async function fetchKarhutlaData(lat, lon, weatherData, forceRefresh = fa
     totalInIndo: hotspotInfo.totalInIndo
   };
 
-  apiCache.set(cacheKey, result, 5 * 60 * 1000); // 5 menit TTL
+  apiCache.set(cacheKey, result, 60 * 1000); // 5 menit TTL
   return result;
 }

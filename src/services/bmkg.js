@@ -37,7 +37,7 @@ export async function fetchLatestEarthquake(forceRefresh = false) {
       shakemap: gempa.Shakemap ? `https://data.bmkg.go.id/DataMKG/TEWS/${gempa.Shakemap}` : null
     };
 
-    apiCache.set(cacheKey, formatted, 3 * 60 * 1000);
+    apiCache.set(cacheKey, formatted, 60 * 1000);
     return formatted;
   } catch (error) {
     console.warn('Gagal memuat gempa terkini BMKG:', error.message);
@@ -83,7 +83,7 @@ export async function fetchRecentEarthquakes(forceRefresh = false) {
       };
     });
 
-    apiCache.set(cacheKey, formatted, 3 * 60 * 1000);
+    apiCache.set(cacheKey, formatted, 60 * 1000);
     return formatted;
   } catch (error) {
     console.warn('Gagal memuat daftar gempa BMKG:', error.message);
