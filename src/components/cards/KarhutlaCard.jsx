@@ -6,6 +6,19 @@ import { translations } from '../../utils/i18n.js';
 export function KarhutlaCard({ karhutlaData, airQualityData, location, onOpenModal, loading }) {
   const t = translations;
 
+  // Data karhutla bisa null saat pemuatan ulang (mis. cache peramban dibersihkan).
+  // Jangan sampai kartu ini membuat seluruh aplikasi gagal tampil.
+  if (!karhutlaData || !karhutlaData.fdrs) {
+    if (!loading) {
+      return (
+        <div className="flat-card" style={{ padding: '1.5rem', marginBottom: '1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+          <Flame size={22} strokeWidth={2.2} style={{ marginBottom: '0.4rem' }} />
+          <div style={{ fontSize: '0.8rem', fontWeight: '600' }}>Data titik panas belum tersedia</div>
+          <div style={{ fontSize: '0.7rem' }}>Muat ulang halaman untuk mencoba lagi.</div>
+        </div>
+      );
+    }
+  }
   if (loading && (!karhutlaData || !karhutlaData.fdrs)) {
     return (
       <div className="flat-card animate-pulse" style={{ padding: '1.5rem', marginBottom: '1.5rem', minHeight: '180px' }}>
